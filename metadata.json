@@ -1,0 +1,6 @@
+{
+  "name": "AI Visibility Scanner",
+  "description": "Free 17-point scan to check website visibility for ChatGPT, Perplexity, and Google AI search engines (SEO, GEO, AEO).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
