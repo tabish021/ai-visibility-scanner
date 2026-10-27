@@ -1,5 +1,5 @@
-export type CheckCategory = 'SEO' | 'GEO' | 'AEO';
-export type CheckStatus = 'pass' | 'warn' | 'fail';
+export type CheckCategory = "SEO" | "GEO" | "AEO";
+export type CheckStatus = "pass" | "warn" | "fail";
 
 export interface CheckItem {
   id: string;
@@ -21,6 +21,7 @@ export interface ScanResult {
   url: string;
   domain: string;
   scannedAt: string;
+  loadTimeMs: number;
   score: number;
   grade: string;
   gradeDescription: string;
