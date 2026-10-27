@@ -129,38 +129,6 @@ const FIX_PRICES: Record<string, number> = {
   "geo-spa-shell": 1800,
 };
 
-// --- RANDOM WATER BUTTON COMPONENT ---
-const WATER_COLORS = [
-  "btn-water-emerald",
-  "btn-water-cyan",
-  "btn-water-purple",
-];
-const WaterButton = React.forwardRef<
-  HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ children, className = "", onMouseEnter, ...props }, ref) => {
-  const [colorClass, setColorClass] = useState(
-    () => WATER_COLORS[Math.floor(Math.random() * WATER_COLORS.length)],
-  );
-  const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
-    setColorClass(
-      WATER_COLORS[Math.floor(Math.random() * WATER_COLORS.length)],
-    );
-    if (onMouseEnter) onMouseEnter(e);
-  };
-  return (
-    <button
-      ref={ref}
-      className={`btn-water ${colorClass} ${className}`}
-      onMouseEnter={handleMouseEnter}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-});
-WaterButton.displayName = "WaterButton";
-
 const getCategoryScore = (checks: any[], fixedIds: string[]) => {
   if (!checks || checks.length === 0) return 0;
   let pass = 0,
@@ -393,19 +361,19 @@ export default function App() {
             </div>
             {scanResult && (
               <div className="flex items-center gap-2">
-                <WaterButton
+                <button
                   onClick={initiatePdfDownload}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-emerald-400 border border-emerald-500/30 text-xs font-semibold"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition-all hover:bg-emerald-500 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]"
                 >
                   <Sparkles className="w-3.5 h-3.5" /> Free Report
-                </WaterButton>
+                </button>
 
-                <WaterButton
+                <button
                   onClick={handleShare}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-gray-300 border border-gray-800 text-xs font-semibold"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-gray-300 border border-gray-800 text-xs font-semibold transition-all hover:bg-gray-800 hover:text-white"
                 >
                   <Share2 className="w-3.5 h-3.5" /> Share
-                </WaterButton>
+                </button>
               </div>
             )}
           </div>
@@ -413,7 +381,6 @@ export default function App() {
 
         <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-10 flex flex-col items-center">
           <div className="w-full text-center max-w-3xl mb-8">
-            {/* NEW HEADLINE */}
             <h1 className="text-3xl sm:text-5xl font-extrabold text-white mb-4">
               Is your business invisible to AI?
             </h1>
@@ -457,14 +424,14 @@ export default function App() {
               <div className="flex items-center gap-2 flex-wrap">
                 <span>Try sample:</span>
                 {SAMPLE_URLS.map((s) => (
-                  <WaterButton
+                  <button
                     key={s}
                     onClick={() => handlePresetClick(s)}
                     disabled={isLoading}
-                    className="px-2.5 py-1 rounded-lg bg-gray-900 border border-gray-800 font-mono text-[11px]"
+                    className="px-2.5 py-1 rounded-lg bg-gray-900 border border-gray-800 font-mono text-[11px] transition-all hover:bg-gray-800 hover:text-white"
                   >
                     <span>{s}</span>
-                  </WaterButton>
+                  </button>
                 ))}
               </div>
               {history.length > 0 && (
@@ -472,13 +439,13 @@ export default function App() {
                   <History className="w-3.5 h-3.5" />
                   <span>Recent:</span>
                   {history.map((h) => (
-                    <WaterButton
+                    <button
                       key={h.domain}
                       onClick={() => setScanResult(h)}
-                      className="px-2 py-1 bg-gray-800 text-gray-300 rounded border border-gray-700"
+                      className="px-2 py-1 bg-gray-800 text-gray-300 rounded border border-gray-700 transition-all hover:bg-gray-700 hover:text-white"
                     >
                       {h.domain}
-                    </WaterButton>
+                    </button>
                   ))}
                 </div>
               )}
@@ -505,18 +472,18 @@ export default function App() {
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <WaterButton
+                  <button
                     onClick={() => setIsCompareModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 text-xs font-bold text-white"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 text-xs font-bold text-white transition-all hover:bg-gray-700"
                   >
                     <TrendingUp className="w-3.5 h-3.5" /> Compare
-                  </WaterButton>
-                  <WaterButton
+                  </button>
+                  <button
                     onClick={() => setIsAiModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-gray-950 text-xs font-bold"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-gray-950 text-xs font-bold transition-all hover:bg-emerald-400 hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]"
                   >
                     <Sparkles className="w-3.5 h-3.5" /> AI Fix Guide
-                  </WaterButton>
+                  </button>
                 </div>
               </div>
 
@@ -573,19 +540,19 @@ export default function App() {
                       </p>
                     </div>
                     <div className="flex gap-2 flex-wrap shrink-0">
-                      <WaterButton
+                      <button
                         onClick={initiatePdfDownload}
-                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-200 border border-gray-700 text-xs font-bold"
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-200 border border-gray-700 text-xs font-bold transition-all hover:bg-gray-700 hover:text-white"
                       >
                         <Download className="w-3.5 h-3.5" /> Free Report
-                      </WaterButton>
-                      <WaterButton
+                      </button>
+                      <button
                         onClick={() => setContactMode("tech")}
-                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-gray-950 font-bold text-xs"
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-gray-950 font-bold text-xs transition-all hover:bg-emerald-400 hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]"
                       >
                         <Code className="w-3.5 h-3.5" /> Fix My Tech (₹
                         {dynamicPrice})
-                      </WaterButton>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -629,7 +596,7 @@ export default function App() {
                     </div>
                     <button
                       onClick={() => setContactMode("perfect")}
-                      className="btn-water btn-water-emerald mt-2 px-6 py-3 rounded-xl bg-emerald-500 text-gray-950 font-bold text-sm shadow-lg shadow-emerald-500/20"
+                      className="mt-2 px-6 py-3 rounded-xl bg-emerald-500 text-gray-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 hover:scale-105"
                     >
                       Discuss Content Strategy
                     </button>
@@ -723,7 +690,7 @@ export default function App() {
                 placeholder="you@company.com"
                 className="w-full bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 text-white mb-3 focus:border-emerald-500 outline-none"
               />
-              <button className="w-full bg-emerald-500 text-gray-950 font-bold py-3 rounded-lg hover:bg-emerald-400">
+              <button className="w-full bg-emerald-500 text-gray-950 font-bold py-3 rounded-lg hover:bg-emerald-400 transition-colors">
                 Download PDF
               </button>
             </form>
@@ -757,7 +724,7 @@ export default function App() {
               <button
                 onClick={handleCompare}
                 disabled={isComparing}
-                className="bg-purple-500 text-white font-bold px-4 rounded-lg disabled:opacity-50"
+                className="bg-purple-500 text-white font-bold px-4 rounded-lg disabled:opacity-50 hover:bg-purple-400 transition-colors"
               >
                 {isComparing ? "Scanning..." : "Scan"}
               </button>
@@ -967,7 +934,7 @@ export default function App() {
                       setIsAiModalOpen(false);
                       setContactMode("tech");
                     }}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold px-6 py-2 rounded-lg transition-colors"
+                    className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold px-6 py-2 rounded-lg transition-colors shadow-[0_0_15px_rgba(34,197,94,0.3)]"
                   >
                     Fix My Technical Foundation (₹{dynamicPrice})
                   </button>
