@@ -446,8 +446,8 @@ export default function App() {
               Is your business invisible to AI?
             </h1>
             <p className="text-lg text-gray-400">
-              Free 17-point scan. See exactly what ChatGPT, Perplexity and
-              Google can read.
+              Free 17-point scan. See exactly what ChatGPT, Perplexity, Google
+              and other AI models can read.
             </p>
           </div>
 
