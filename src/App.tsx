@@ -352,8 +352,54 @@ export default function App() {
         <header className="border-b border-gray-900/50 bg-gray-950/60 backdrop-blur-md sticky top-0 z-30">
           <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                <Bot className="w-5 h-5" />
+              {/* NEW GRAPH LOGO REPLACING BOT ICON */}
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="w-5 h-5 drop-shadow-[0_0_6px_rgba(52,211,153,0.8)]"
+                >
+                  <rect
+                    x="3"
+                    y="14"
+                    width="3"
+                    height="6"
+                    fill="currentColor"
+                    opacity="0.6"
+                    rx="0.5"
+                  />
+                  <rect
+                    x="9"
+                    y="9"
+                    width="3"
+                    height="11"
+                    fill="currentColor"
+                    opacity="0.8"
+                    rx="0.5"
+                  />
+                  <rect
+                    x="15"
+                    y="4"
+                    width="3"
+                    height="16"
+                    fill="currentColor"
+                    rx="0.5"
+                  />
+                  <path
+                    d="M2 20 L20 2"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M12 2h8v8"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </div>
               <span className="font-extrabold text-white text-base">
                 AI Visibility Scanner
@@ -363,14 +409,14 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={initiatePdfDownload}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition-all hover:bg-emerald-500 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500 hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]"
                 >
                   <Sparkles className="w-3.5 h-3.5" /> Free Report
                 </button>
 
                 <button
                   onClick={handleShare}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-gray-300 border border-gray-800 text-xs font-semibold transition-all hover:bg-gray-800 hover:text-white"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-gray-300 border border-gray-800 text-xs font-semibold transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500 hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]"
                 >
                   <Share2 className="w-3.5 h-3.5" /> Share
                 </button>
@@ -428,7 +474,7 @@ export default function App() {
                     key={s}
                     onClick={() => handlePresetClick(s)}
                     disabled={isLoading}
-                    className="px-2.5 py-1 rounded-lg bg-gray-900 border border-gray-800 font-mono text-[11px] transition-all hover:bg-gray-800 hover:text-white"
+                    className="px-2.5 py-1 rounded-lg bg-gray-900 border border-gray-800 font-mono text-[11px] transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500 hover:shadow-[0_0_10px_rgba(34,197,94,0.5)]"
                   >
                     <span>{s}</span>
                   </button>
@@ -442,7 +488,7 @@ export default function App() {
                     <button
                       key={h.domain}
                       onClick={() => setScanResult(h)}
-                      className="px-2 py-1 bg-gray-800 text-gray-300 rounded border border-gray-700 transition-all hover:bg-gray-700 hover:text-white"
+                      className="px-2 py-1 bg-gray-800 text-gray-300 rounded border border-gray-700 transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500 hover:shadow-[0_0_10px_rgba(34,197,94,0.5)]"
                     >
                       {h.domain}
                     </button>
@@ -474,13 +520,13 @@ export default function App() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setIsCompareModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 text-xs font-bold text-white transition-all hover:bg-gray-700"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 text-xs font-bold text-white transition-all hover:bg-emerald-500 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]"
                   >
                     <TrendingUp className="w-3.5 h-3.5" /> Compare
                   </button>
                   <button
                     onClick={() => setIsAiModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-gray-950 text-xs font-bold transition-all hover:bg-emerald-400 hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-gray-950 text-xs font-bold transition-all hover:bg-emerald-400 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.6)]"
                   >
                     <Sparkles className="w-3.5 h-3.5" /> AI Fix Guide
                   </button>
@@ -542,13 +588,13 @@ export default function App() {
                     <div className="flex gap-2 flex-wrap shrink-0">
                       <button
                         onClick={initiatePdfDownload}
-                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-200 border border-gray-700 text-xs font-bold transition-all hover:bg-gray-700 hover:text-white"
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-200 border border-gray-700 text-xs font-bold transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500 hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]"
                       >
                         <Download className="w-3.5 h-3.5" /> Free Report
                       </button>
                       <button
                         onClick={() => setContactMode("tech")}
-                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-gray-950 font-bold text-xs transition-all hover:bg-emerald-400 hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]"
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-gray-950 font-bold text-xs transition-all hover:bg-emerald-400 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.6)]"
                       >
                         <Code className="w-3.5 h-3.5" /> Fix My Tech (₹
                         {dynamicPrice})
@@ -596,7 +642,7 @@ export default function App() {
                     </div>
                     <button
                       onClick={() => setContactMode("perfect")}
-                      className="mt-2 px-6 py-3 rounded-xl bg-emerald-500 text-gray-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 hover:scale-105"
+                      className="mt-2 px-6 py-3 rounded-xl bg-emerald-500 text-gray-950 font-bold text-sm transition-all hover:bg-emerald-400 hover:text-gray-950 hover:shadow-[0_0_20px_rgba(34,197,94,0.6)]"
                     >
                       Discuss Content Strategy
                     </button>
@@ -687,10 +733,10 @@ export default function App() {
                 type="email"
                 value={leadEmail}
                 onChange={(e) => setLeadEmail(e.target.value)}
-                placeholder="you@company.com"
+                placeholder="hello@needawebsite.com"
                 className="w-full bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 text-white mb-3 focus:border-emerald-500 outline-none"
               />
-              <button className="w-full bg-emerald-500 text-gray-950 font-bold py-3 rounded-lg hover:bg-emerald-400 transition-colors">
+              <button className="w-full bg-emerald-500 text-gray-950 font-bold py-3 rounded-lg transition-all hover:bg-emerald-400 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.6)]">
                 Download PDF
               </button>
             </form>
@@ -724,7 +770,7 @@ export default function App() {
               <button
                 onClick={handleCompare}
                 disabled={isComparing}
-                className="bg-purple-500 text-white font-bold px-4 rounded-lg disabled:opacity-50 hover:bg-purple-400 transition-colors"
+                className="bg-purple-500 text-white font-bold px-4 rounded-lg disabled:opacity-50 transition-all hover:bg-emerald-500 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]"
               >
                 {isComparing ? "Scanning..." : "Scan"}
               </button>
@@ -934,7 +980,7 @@ export default function App() {
                       setIsAiModalOpen(false);
                       setContactMode("tech");
                     }}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold px-6 py-2 rounded-lg transition-colors shadow-[0_0_15px_rgba(34,197,94,0.3)]"
+                    className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold px-6 py-2 rounded-lg transition-all hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.6)]"
                   >
                     Fix My Technical Foundation (₹{dynamicPrice})
                   </button>
@@ -988,7 +1034,7 @@ export default function App() {
             <div className="flex flex-col gap-3">
               <a
                 href="tel:+919987455707"
-                className="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 border border-gray-700 transition-colors"
+                className="w-full bg-gray-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 border border-gray-700 transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500 hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]"
               >
                 <Phone className="w-4 h-4" /> Call Now
               </a>
@@ -996,7 +1042,7 @@ export default function App() {
                 href={`https://wa.me/919987455707?text=${encodeURIComponent(contactMode === "tech" ? `Hi Tabish, I want to hire you for the Foundation Fix for ${scanResult.domain}. The quoted price is ₹${dynamicPrice}.` : contactMode === "content" ? `Hi Tabish, I want to discuss a content strategy for my website (${scanResult.domain}).` : `Hi Tabish, my website (${scanResult.domain}) passed all tests! I want to discuss ranking it to the top.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-emerald-500/20"
+                className="w-full bg-emerald-500 text-gray-950 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-emerald-400 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.6)]"
               >
                 <MessageSquare className="w-4 h-4" /> Message on WhatsApp
               </a>
