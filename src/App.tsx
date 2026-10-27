@@ -282,11 +282,23 @@ export default function App() {
     );
 
   const initiatePdfDownload = () => setIsLeadModalOpen(true);
-  const confirmLeadAndDownload = (e: React.FormEvent) => {
+  const confirmLeadAndDownload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!leadEmail) return;
+
     setIsLeadModalOpen(false);
     setIsDownloadingPdf(true);
+
+    try {
+      // Send the email to the backend to be logged
+      await axios.post("/api/lead", {
+        email: leadEmail,
+        domain: scanResult?.domain,
+      });
+    } catch (err) {
+      console.error("Failed to save lead:", err);
+    }
+
     setTimeout(() => {
       if (scanResult) generatePdfReport({ ...scanResult, score: currentScore });
       setIsDownloadingPdf(false);
