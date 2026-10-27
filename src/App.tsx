@@ -324,7 +324,7 @@ export default function App() {
   };
 
   const handleShare = () => {
-    const text = `My website ${scanResult?.domain} scored ${currentScore}/100 on AI Visibility! Check yours at aivisibility.in`;
+    const text = `My website ${scanResult?.domain} scored ${currentScore}/100 on AI Visibility! Check yours at aiscan.needawebsite.in`;
     if (navigator.share) {
       navigator.share({
         title: "AI Visibility Scanner",
@@ -720,8 +720,16 @@ export default function App() {
               Created by Tabish
             </p>
             <p className="text-[11px] text-gray-500 mt-1">
-              © {new Date().getFullYear()} Generative Engine Optimization
-              Engine • All rights reserved
+              © {new Date().getFullYear()} Product of{" "}
+              <a
+                href="https://needawebsite.in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-emerald-400 transition-colors underline decoration-gray-600 hover:decoration-emerald-400"
+              >
+                NeedAWebsite
+              </a>{" "}
+              • All rights reserved
             </p>
           </div>
         </footer>
