@@ -35,7 +35,7 @@ import { RocketCursor } from "./components/RocketCursor";
 import { generatePdfReport } from "./utils/generatePdfReport";
 import { LiquidMetalButton } from "./components/liquid-metal-button";
 import { StarfieldBackground } from "./components/StarfieldBackground";
-import { Confetti } from "./components/Confetti"; // ADDED CONFETTI
+import { Confetti } from "./components/Confetti";
 
 const SAMPLE_URLS = [
   "stripe.com",
@@ -393,12 +393,19 @@ export default function App() {
             </div>
             {scanResult && (
               <div className="flex items-center gap-2">
-                <button
+                <WaterButton
+                  onClick={initiatePdfDownload}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-emerald-400 border border-emerald-500/30 text-xs font-semibold"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Free Report
+                </WaterButton>
+
+                <WaterButton
                   onClick={handleShare}
-                  className="btn-water btn-water-cyan flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-gray-300 border border-gray-800 text-xs font-semibold"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-gray-300 border border-gray-800 text-xs font-semibold"
                 >
                   <Share2 className="w-3.5 h-3.5" /> Share
-                </button>
+                </WaterButton>
               </div>
             )}
           </div>
@@ -406,8 +413,9 @@ export default function App() {
 
         <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-10 flex flex-col items-center">
           <div className="w-full text-center max-w-3xl mb-8">
+            {/* NEW HEADLINE */}
             <h1 className="text-3xl sm:text-5xl font-extrabold text-white mb-4">
-              Is AI invisible to your website?
+              Is your business invisible to AI?
             </h1>
             <p className="text-lg text-gray-400">
               Free 17-point scan. See exactly what ChatGPT, Perplexity and
@@ -497,18 +505,18 @@ export default function App() {
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <button
+                  <WaterButton
                     onClick={() => setIsCompareModalOpen(true)}
-                    className="btn-water btn-water-purple flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 text-xs font-bold text-white"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 text-xs font-bold text-white"
                   >
                     <TrendingUp className="w-3.5 h-3.5" /> Compare
-                  </button>
-                  <button
+                  </WaterButton>
+                  <WaterButton
                     onClick={() => setIsAiModalOpen(true)}
-                    className="btn-water btn-water-dark flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-gray-950 text-xs font-bold"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-gray-950 text-xs font-bold"
                   >
                     <Sparkles className="w-3.5 h-3.5" /> AI Fix Guide
-                  </button>
+                  </WaterButton>
                 </div>
               </div>
 
@@ -565,19 +573,19 @@ export default function App() {
                       </p>
                     </div>
                     <div className="flex gap-2 flex-wrap shrink-0">
-                      <button
+                      <WaterButton
                         onClick={initiatePdfDownload}
-                        className="btn-water btn-water-dark flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-gray-950 font-bold text-xs"
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-200 border border-gray-700 text-xs font-bold"
                       >
-                        <Sparkles className="w-3.5 h-3.5" /> Free Report
-                      </button>
-                      <button
+                        <Download className="w-3.5 h-3.5" /> Free Report
+                      </WaterButton>
+                      <WaterButton
                         onClick={() => setContactMode("tech")}
-                        className="btn-water btn-water-emerald flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-200 border border-gray-700 text-xs font-bold"
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-gray-950 font-bold text-xs"
                       >
-                        <Download className="w-3.5 h-3.5" /> Fix My Tech (₹
+                        <Code className="w-3.5 h-3.5" /> Fix My Tech (₹
                         {dynamicPrice})
-                      </button>
+                      </WaterButton>
                     </div>
                   </div>
                 )}
