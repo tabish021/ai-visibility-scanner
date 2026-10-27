@@ -5,7 +5,7 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 
 const app = express();
-const PORT = process.env.PORT || 9999;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
