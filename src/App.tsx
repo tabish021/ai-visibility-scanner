@@ -21,6 +21,8 @@ import {
   CheckCircle2,
   CheckSquare,
   Phone,
+  FileText,
+  Code,
 } from "lucide-react";
 import axios from "axios";
 import { ScanResult, CheckCategory } from "./types";
@@ -42,430 +44,89 @@ const SAMPLE_URLS = [
   "supabase.com",
 ];
 
-// 200+ REAL MUMBAI/PUNE BUSINESSES FOR THE TICKER
 const RECENT_SCAN_URLS = [
-  "yogatainment.in",
-  "premanandyoga.net",
-  "cult.fit",
-  "goldsgym.in",
+  "dianasseafood.com",
+  "apocalypsecroasters.com",
+  "trofo.com",
+  "closetworld.co",
   "srapilatesfitness.com",
   "mumbaiboxing.com",
-  "theworkoutroom.in",
+  "gitman.com",
   "shape2run.com",
   "nitrro.in",
   "danzofit.com",
   "phhotyoga.com",
   "vlcc.com",
   "apollohospitals.com",
-  "purepilates.co.in",
+  "thenewdigital.com",
   "rhythmandflow.in",
-  "fitbeats.in",
+  "tillysveaas.co",
   "keysfitness.in",
-  "nuagehotyoga.com",
-  "boxringfitness.com",
+  "kravejerky.com",
+  "mountstreetprinters.com",
   "mintonetteplus.com",
   "ivoryphysiotherapy.in",
   "crossfitmyden.co.in",
-  "swasta.life",
-  "oshivayoga.in",
+  "poketo.com",
+  "saturdaysnyc.com",
   "club90.co.in",
   "trexfitnessfactory.com",
   "mcccricket.com",
   "stridestudio.in",
-  "yogawithanindita.com",
-  "fitmechanism.in",
-  "healthnessfirst.com",
-  "yogpowerint.com",
-  "yogabyreilly.com",
-  "trabhiyoga.com",
-  "nitishyogofficial.com",
-  "aditisyogawellness.com",
-  "earthelementyoga.in",
-  "leafyogavillage.com",
-  "birthnbeyond.in",
-  "mandarshinde.issacertifiedtrainer.com",
-  "yoga-with-harsh-chheda.grexa.site",
-  "futuristicfitness.co.in",
-  "platinumfitness.in",
-  "sashaktkasratghar.com",
-  "fitjazz-fitness-studio.grexa.site",
-  "keystudios.in",
-  "rudiofitness.com",
-  "plusfitness.co.in",
-  "fitnessfevergym.com",
-  "fitnesswarehousegym.in",
-  "fit7borivaliwest.com",
-  "thesportsgurukul.com",
-  "letsplayacademy.in",
-  "riazfitness.com",
-  "pilatesaltitude.com",
-  "kenzofitness.co.in",
-  "laxmanayoga.com",
-  "yogawithrajani.com",
-  "healingcrystal.co.in",
-  "livewithyoga.org",
-  "amritwaniyogkendra.in",
-  "utthaan-yoga.ueniweb.com",
-  "mvpsportsacademy.in",
-  "elevatesportsindia.com",
-  "parthsportsacademy.com",
-  "prinine.com",
-  "ykbipilates.com",
-  "padukonesportsmanagement.com",
-  "uvfitness.co.in",
-  "shankyfitness.in",
-  "getfitwithdaniella.com",
-  "mypainclinicglobal.com",
-  "movebetter.co.in",
-  "bombayhighsports.in",
-  "achieve-fitness-bandra.grexa.site",
-  "elysiumcalipark.com",
-  "ruchipilates.com",
-  "vahawellness.in",
-  "thereformstudio.com",
-  "sculptasse.com",
-  "moovstudio.in",
-  "physigo.in",
-  "activ8studio.in",
-  "ffitforlifegym.com",
-  "sweatpilates.in",
-  "pilatescirclebycult.com",
-  "sweatfitwellness.com",
-  "mindflexpilates.com",
-  "tulamove.com",
-  "5thgearpilates.com",
-  "pilatesmumbai.com",
-  "formpilatesandphysio.com",
-  "dunamispilates.com",
-  "corepilates.in",
-  "pilatesacademydubai.com",
-  "radhikasbalancedbody.com",
-  "sayujyayoga.in",
-  "prachisyogafitness.com",
-  "shrithoratyoga.com",
-  "afcgym.in",
-  "beesfitnessstudio.com",
-  "whynotfitness.in",
-  "physiatricsplus.in",
-  "physionv.in",
-  "prosehatmumbai.in",
-  "juhuandheri.theyogainstitute.org",
-  "rsyogaschool.in",
-  "omvikayogafitnessstudio.blogspot.com",
-  "yogangle.com",
-  "wellness-yoga.com",
-  "prayagyoga.com",
-  "ayamyoga.in",
-  "bymyoga.in",
-  "innerworldyogaacademy.com",
-  "realignwitharunadharia.com",
-  "eaglesquarefitness.in",
-  "hrfitnesscrossfitgym.com",
-  "crossfitkaali.com",
-  "leofitness.in",
-  "nolimitfitness.in",
-  "66cfj4.atoms.world",
-  "rawfitgym.in",
-  "magnumfitness.co.in",
-  "agamyoga.com",
-  "ms-yoga-hub.business.site",
-  "magicofyoga.com",
-  "thereshapefitness.com",
-  "powerpointgyms.com",
-  "prommaleague.com",
-  "planetmuscle.fit",
-  "ironparadiesgym.in",
-  "ironhouse.co.in",
-  "wavesgym.com",
-  "sanctumclub.co",
-  "sohfithq.com",
-  "thetribexindia.com",
-  "resculpt.fit",
-  "thestrengthclub.in",
-  "wyzsportscience.com",
-  "vervefitnesshub.com",
-  "v33fitness.in",
-  "coreclubb.com",
-  "fitmotivationstudio.in",
-  "elitefitxdubaidatesnutrition.com",
-  "twalkarwellness.com",
-  "bodysculptor.in",
-  "triyog-fit-dance-fitness.grexa.site",
-  "kruxgetfit.com",
-  "thegymculture.in",
-  "citysportsacademy.com",
-  "hudle.in",
-  "sportsfort.in",
-  "podar.org",
-  "mahatmasportsacademyyoga.lovable.app",
-  "michaelphelpsswimming.in",
-  "prokingsportsacademy.in",
-  "cricfitter.com",
-  "joshsports.com",
-  "blackantsfc.in",
-  "dahisarsportsclub.com",
-  "urbansports.in",
-  "frmindia.com",
-  "icsporting.in",
-  "connectto.in",
-  "vitalismove.com",
-  "fit2flauntfitness.com",
-  "rfss.co.in",
-  "aminasslimway.com",
-  "ohanafitness.in",
-  "shredxfytnest.com",
-  "namitasfitnesshub.com",
-  "gymarenaa.in",
-  "bemorefit.in",
-  "tungstenfitness.in",
-  "360degreefitnesskickboxing.in",
-  "oneabovefitness.com",
-  "aatmashantiwellness.com",
-  "vervegymnasium.in",
-  "aumhealthandwellness.co.in",
-  "luxorspasanpada.in",
-  "ysmyoga.com",
-  "shatayuspacbdbelapur.co.in",
-  "thegoodplaceclinic.com",
-  "opusworldwellness.com",
-  "theviewspa.site.pro",
-  "sushmitamukhia.co.in",
-  "spinecarephysio.com",
-  "sharu-pranic-healing.grexa.site",
-  "madhavbaug.org",
-  "bodysculptclinic.in",
-  "vimuktiyoga.com",
-  "allurethaispa.in",
-  "samairadiagnostics.com",
-  "amigospa.in",
-  "marinathaispa.com",
-  "awakeniq.com",
-  "skinaesthete.com",
-  "vishwaneelayurveda.com",
-  "theyoga.artcastle.org.in",
-  "anandalaxmiyoga.co.in",
-  "artoflearninginstitute.com",
-  "mahayogawellness.com",
-  "hirephysio.com",
-  "gaurisyogastudio.in",
-  "samaragym.com",
-  "fusionelementz.com",
-  "orkidacademy.in",
-  "fitnessclubstudio.in",
-  "4dfitness.in",
-  "acofitness.in",
-  "abidepilates.in",
-  "aimfitnesspune.in",
-  "alignstudiopilates.in",
-  "aristofitnessstudio.com",
-  "atenxstudio.com",
-  "aurapulsestudio.netlify.app",
-  "biorhythmindia.co.in",
-  "dtfstudio.com",
-  "primalbasegym.com",
-  "lemontreehotels.com",
-  "ahujaresidences.com",
-  "nutracylifestylebydrrohinipatil.com",
-  "hathayogainstitute.com",
-  "aadyamyoga.com",
-  "yogsutrasbysamidha.com",
-  "skyboxathlete.com",
-  "dynamichealthstudio.com",
-  "monkeyflagfitness.com",
-  "ekoham.co.in",
-  "eliteedgefitness.in",
-  "ellipsa.in",
-  "empowerfitnessclub.com",
-  "evolvefitnesspune.in",
-  "personaltrainerfreelance.godaddysites.com",
-  "yogaurja.com",
-  "yogvishwa.com",
-  "vedbrahma.yoga",
-  "iyengaryogsadhana.com",
-  "jayuspoweryogaclasses.com",
-  "athfitstudio.com",
-  "samsaratheyogastudio.com",
-  "sohamyogastudio.org",
-  "healthynfitter.com",
-  "yogamyogashala.com",
-  "mariasyoga.org",
-  "mindbodymeditationyoga.com",
-  "yogismindia.org",
-  "divineyogstudio.in",
-  "yoganjali.in",
-  "ikorepilates.com",
-  "yogateach.net",
-  "pratishyoga.com",
-  "nainayoga.in",
-  "oyogauniversal.co.in",
-  "dhivo.org",
-  "yogawaybyasmeeta.in",
-  "swastiyogacenter.com",
-  "trisoulwellness.com",
-  "vinoddulalyoga.com",
-  "theunbeatables.in",
-  "danceinmotionindia.com",
-  "talenthubb.com",
-  "inthere.in",
-  "fun-with-zumba-classes.business.site",
-  "dynamofitnessgym.netlify.app",
-  "jk-aerobics-zumba.grexa.site",
-  "tranceformfitness.com",
-  "kpilates.in",
-  "thebodylabgym.com",
-  "k6fitnessstudios.in",
-  "hrstudios.co.in",
-  "bodygurufitnessclub.com",
-  "xumofitness.com",
-  "rockfoldfitness.com",
-  "primefit.me",
-  "mfitnessyogtherapy.com",
-  "leafzumba.com",
-  "fitness.shreddedwolves.com",
-  "powergoldgym.in",
-  "moushuspilates.com",
-  "peptsuccess.com",
-  "vo2fitnessclub.in",
-  "samsfitnessstudio.com",
-  "gymbiosisfitnessclub.lovable.app",
-  "24sfitnessandbeyond.com",
-  "wildfit.me",
-  "fabbfitt.in",
-  "soundsfitt.com",
-  "trifit.in",
-  "paramyoga.in",
-  "pinkfit.in",
-  "rpilates.in",
-  "refityoga.com",
-  "riyasastudios.com",
-  "semicolonpilatesstudio.fly-social.site",
-  "sixpaxindia.com",
-  "soulzfitness.com",
-  "absfitnessclub.in",
-  "dotfit.in",
-  "anaahatyog.com",
-  "lyberty.fit",
-  "healthsagebypujaaa.com",
-  "taisoindia.com",
-  "thefitnesstemple.in",
-  "theyogcircle.com",
-  "neurobroma.in",
-  "artofliving.org",
-  "physiotherapistusha.in",
-  "tybwithali.com",
-  "onlineandhomefitnesstrainer.blogspot.com",
-  "tfcpro.in",
-  "vigourfitnessstudio.com",
-  "fitarth.com",
-  "vigourpilates.com",
-  "yogilateswithnidhi.practicenow.us",
-  "yphoria.com",
-  "cowpriority.com",
-  "physiowell360.com",
-  "drdeepikabansalphysio.com",
-  "firstfitt.in",
-  "wwwk.aaakryog.com",
-  "lotusyogapune.com",
-  "axtremfit.com",
-  "multifit.in",
-  "technofitgym.in",
-  "naturalspapune.com",
-  "fitnessfreak6364.wixsite.com",
-  "atxfitnessgym.com",
-  "coabiohackingclinic.com",
-  "risewithkratos.com",
-  "trident-fitness.in",
-  "kohamfit.com",
-  "fitdeh.in",
-  "apexphysioclinic.com",
-  "countryfit.in",
-  "thanepilates.com",
-  "yogtatvah.com",
-  "fusionfitnessstudi.wixsite.com",
-  "neopilates.in",
-  "snehalfitness.in",
-  "vibezoneestudio.netlify.app",
-  "fitness-vibes-studio.grexa.site",
-  "thesocialhaus.in",
-  "shubuszionstudio.in",
-  "machinelessworkout.com",
-  "fitandflexgym.com",
-  "musclemonstergym.com",
-  "core04gym.in",
-  "gravityfitness.co.in",
-  "abhijeetfitness.wordpress.com",
-  "sportsbox.co.in",
-  "nachogeo.netlify.app",
-  "thefitplayce.com",
-  "yogaburnt.org",
-  "hybridhq.in",
-  "turf.attendez.in",
-  "onenessfa.com",
-  "thanecityfc.com",
-  "footballworldindia.com",
-  "joshuafootballacademy.com",
-  "indiakhelofootball.com",
-  "academy.skorostunited.com",
-  "corefitnesskalwa.in",
-  "yogintra.com",
-  "1lifegym.com",
-  "cosmosfa.in",
-  "keeayoacademy.in",
-  "kvsfitness.com",
-  "prathamfit.in",
-  "yogdeep.net",
-  "shwetyoga.in",
-  "aerialyogaspace.wixsite.com",
-  "yogasanskarsutra.com",
-  "yog-shaktii.vercel.app",
-  "priyogwellness.com",
-  "abhivarah.com",
-  "divineblissyogastudio.com",
-  "thaneschoolyoga.com",
-  "tansissupremeyogalaya.com",
-  "sense22yoga.com",
-  "rohitpillaiyoga.com",
-  "fitopediayogastudio.exlyapp.com",
-  "prakrutinaturopathy.in",
-  "karmveeryoga.com",
-  "asanayogawithsapna1111.in",
-  "shivanandayogainstitute.in",
-  "evolutionfitnessnx.in",
-  "torquefitness.co.in",
-  "magnumfitnessgym.in",
-  "goldenearthyoga.com",
-  "eldoradoyogastore.com",
-  "yogawithreejo.in",
-  "yogwithdileshsir.com",
-  "yoganushasan.com",
-  "yogurja.com",
-  "yogaguppy.com",
-  "niramayyogacenter.in",
-  "yosyogashop.com",
-  "corporateswasthya.com",
-  "osaatfitness.com",
-  "reshapefitnessplusthane.com",
-  "jarayuayurved.com",
-  "pramodchaturvedi.com",
-  "nsfitzone.in",
-  "funandfit.in",
-  "sportsignite.in",
-  "durvasportsacademy.in",
-  "younggunsfootballacademy.com",
-  "vhrsports.com",
-  "ads-gear-up.grexa.site",
-  "fabvisitingcard.in",
-  "phoenixgymnastics.info",
-  "iofficialsports.grexa.site",
-  "bodymusclegym.com",
-  "meerasfitnesscentre.com",
-  "yogalateswithrashmi.com",
-  "bodyart.in",
-  "goalazofootball.com",
-  "royalsports.ind.in",
-  "nsquarecarrom.com",
-  "starfishsports.co.in",
+  "gleamcarwash.com",
+  "letterfolk.com",
+  "thesill.com",
+  "bellroy.com",
+  "artifactuprising.com",
+  "asburyparkbrewery.com",
+  "voodoodoughnut.com",
+  "partnerscoffee.com ",
+  "socksmith.com",
+  "uglydrinks.com",
+  "terraintrees.com",
+  "nativecos.com",
+  "brooklinen.com",
+  "shhhowercap.com",
+  "hardgraft.com",
+  "sweetgreen.com",
+  "snacknation.com",
 ];
+
+// --- PRICING LOGIC ---
+const TECHNICAL_IDS = [
+  "seo-title",
+  "seo-h1",
+  "seo-h2",
+  "seo-canonical",
+  "seo-viewport",
+  "geo-spa-shell",
+  "geo-llms-txt",
+  "geo-og-tags",
+  "geo-img-alt",
+  "aeo-json-ld",
+  "aeo-local-business",
+  "aeo-robots-ai",
+  "aeo-nap",
+  "aeo-broken-links",
+];
+const CONTENT_IDS = ["geo-word-count", "geo-trust-signals", "aeo-faq"];
+
+const FIX_PRICES: Record<string, number> = {
+  "seo-title": 100,
+  "seo-h1": 100,
+  "seo-h2": 100,
+  "seo-canonical": 100,
+  "seo-viewport": 100,
+  "aeo-robots-ai": 500,
+  "geo-og-tags": 500,
+  "geo-img-alt": 500,
+  "aeo-nap": 500,
+  "geo-llms-txt": 500,
+  "aeo-broken-links": 500,
+  "aeo-json-ld": 1000,
+  "aeo-local-business": 1200,
+  "geo-spa-shell": 1800,
+};
 
 // --- RANDOM WATER BUTTON COMPONENT ---
 const WATER_COLORS = [
@@ -499,7 +160,6 @@ const WaterButton = React.forwardRef<
 });
 WaterButton.displayName = "WaterButton";
 
-// Helper to calculate dynamic category scores based on checked boxes
 const getCategoryScore = (checks: any[], fixedIds: string[]) => {
   if (!checks || checks.length === 0) return 0;
   let pass = 0,
@@ -519,17 +179,10 @@ export default function App() {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-
-  // FOMO Ticker State
   const [tickerUrl, setTickerUrl] = useState(RECENT_SCAN_URLS[0]);
-
-  // Local Storage History
   const [history, setHistory] = useState<ScanResult[]>([]);
-
-  // Interactive Checklist
   const [fixedChecks, setFixedChecks] = useState<string[]>([]);
 
-  // Modals
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [leadEmail, setLeadEmail] = useState("");
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
@@ -539,7 +192,6 @@ export default function App() {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
-  // 1. FOMO Ticker Effect
   useEffect(() => {
     const interval = setInterval(() => {
       setTickerUrl(
@@ -549,7 +201,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. Load History on Mount
   useEffect(() => {
     const saved = localStorage.getItem("scanHistory");
     if (saved) {
@@ -559,7 +210,6 @@ export default function App() {
     }
   }, []);
 
-  // 3. Dynamic Scores
   const currentScore = useMemo(() => {
     if (!scanResult) return 0;
     let score = scanResult.score;
@@ -593,10 +243,29 @@ export default function App() {
     [scanResult, fixedChecks],
   );
 
-  const totalErrors = useMemo(() => {
-    if (!scanResult) return 0;
-    return scanResult.checks.filter((c) => c.status !== "pass").length;
+  const techErrors = useMemo(() => {
+    if (!scanResult) return [];
+    return scanResult.checks.filter(
+      (c) => c.status !== "pass" && TECHNICAL_IDS.includes(c.id),
+    );
   }, [scanResult]);
+
+  const contentErrors = useMemo(() => {
+    if (!scanResult) return [];
+    return scanResult.checks.filter(
+      (c) => c.status !== "pass" && CONTENT_IDS.includes(c.id),
+    );
+  }, [scanResult]);
+
+  // DYNAMIC PRICING CALCULATION
+  const dynamicPrice = useMemo(() => {
+    if (techErrors.length === 0) return 0;
+    let price = 499; // Base Fee
+    techErrors.forEach((err) => {
+      price += FIX_PRICES[err.id] || 500;
+    });
+    return Math.min(7999, price); // Cap at 7999
+  }, [techErrors]);
 
   const handleScan = async (targetUrlToScan?: string) => {
     const rawTarget = targetUrlToScan || urlInput;
@@ -699,7 +368,6 @@ export default function App() {
       <CursorGlow />
       <RocketCursor />
 
-      {/* FOMO TICKER */}
       <div className="w-full bg-emerald-950/80 border-b border-emerald-500/20 text-emerald-400 text-[10px] font-mono py-1.5 flex items-center justify-center gap-2 z-50 backdrop-blur-md">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
         <span>
@@ -734,7 +402,6 @@ export default function App() {
         </header>
 
         <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-10 flex flex-col items-center">
-          {/* Hero */}
           <div className="w-full text-center max-w-3xl mb-8">
             <h1 className="text-3xl sm:text-5xl font-extrabold text-white mb-4">
               Is AI invisible to your website?
@@ -745,7 +412,6 @@ export default function App() {
             </p>
           </div>
 
-          {/* Input */}
           <div className="w-full max-w-2xl mb-8">
             <form
               onSubmit={(e) => {
@@ -813,7 +479,6 @@ export default function App() {
             )}
           </div>
 
-          {/* Results */}
           {isLoading && <ScanSkeleton targetUrl={urlInput} />}
 
           {!isLoading && scanResult && (
@@ -881,33 +546,60 @@ export default function App() {
 
               <div className="w-full max-w-4xl mt-10 p-5 rounded-2xl bg-gray-900/80 border border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div>
-                  <h4 className="text-base font-bold text-white">
-                    Need an Expert Review & Feedback?
+                  <h4 className="text-base font-bold text-white flex items-center gap-2">
+                    <Code className="w-4 h-4 text-emerald-400" /> Technical
+                    Foundation
                   </h4>
                   <p className="text-xs text-gray-400 mt-1">
-                    Get a comprehensive human-audited Feedback Report.
+                    You have{" "}
+                    <span className="text-rose-400 font-bold">
+                      {techErrors.length} technical errors
+                    </span>{" "}
+                    blocking AI from reading your site. I can fix all of these
+                    within 24 hours.
                   </p>
                 </div>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap shrink-0">
                   <button
                     onClick={() => setIsReportModalOpen(true)}
                     className="btn-water btn-water-dark flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-gray-950 font-bold text-xs"
                   >
-                    <Sparkles className="w-3.5 h-3.5" /> Report
+                    <Sparkles className="w-3.5 h-3.5" /> Free Report
                   </button>
                   <button
-                    onClick={initiatePdfDownload}
-                    disabled={isDownloadingPdf}
-                    className="btn-water btn-water-emerald flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-gray-800 text-gray-200 border border-gray-700 text-xs font-semibold"
+                    onClick={() => setIsContactModalOpen(true)}
+                    className="btn-water btn-water-emerald flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-200 border border-gray-700 text-xs font-bold"
                   >
-                    <Download className="w-3.5 h-3.5" /> Download PDF
+                    <Download className="w-3.5 h-3.5" /> Fix My Tech (₹
+                    {dynamicPrice})
                   </button>
                 </div>
               </div>
+
+              {contentErrors.length > 0 && (
+                <div className="w-full max-w-4xl mt-4 p-4 rounded-2xl bg-gray-900/40 border border-gray-800/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-300 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-purple-400" /> Content &
+                      Authority
+                    </h4>
+                    <p className="text-xs text-gray-500 mt-1">
+                      You have {contentErrors.length} content errors (e.g.,
+                      missing FAQ, no author bio). These require a custom
+                      monthly strategy.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsContactModalOpen(true)}
+                    className="text-xs font-bold text-purple-400 hover:text-purple-300 underline"
+                  >
+                    Discuss Content Strategy
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {/* FEATURE CARDS */}
           {!isLoading && !scanResult && (
             <div className="w-full max-w-4xl mt-12 grid grid-cols-1 md:grid-cols-3 gap-5">
               <div className="p-6 rounded-2xl bg-gray-900/60 backdrop-blur-sm border border-gray-800/80">
@@ -954,7 +646,6 @@ export default function App() {
           )}
         </main>
 
-        {/* FOOTER RESTORED */}
         <footer className="border-t border-gray-900/50 bg-gray-950/60 py-10 text-center text-xs text-gray-400 backdrop-blur-md mt-auto">
           <div className="max-w-6xl mx-auto px-4 flex flex-col items-center justify-center gap-1">
             <p className="text-gray-200 font-bold text-base tracking-tight">
@@ -970,8 +661,6 @@ export default function App() {
           </div>
         </footer>
       </div>
-
-      {/* --- MODALS --- */}
 
       <ReportModal
         isOpen={isReportModalOpen}
@@ -1245,7 +934,8 @@ export default function App() {
                   Want me to fix all of this for you?
                 </p>
                 <p className="text-xs text-gray-400 mb-3">
-                  I can implement all {totalErrors} fixes within 24 hours.
+                  I can implement all {techErrors.length} technical fixes within
+                  24 hours.
                 </p>
                 <button
                   onClick={() => {
@@ -1254,7 +944,7 @@ export default function App() {
                   }}
                   className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold px-6 py-2 rounded-lg transition-colors"
                 >
-                  Foundation Fix (₹7,999)
+                  Fix My Technical Foundation (₹{dynamicPrice})
                 </button>
               </div>
             </div>
@@ -1280,16 +970,16 @@ export default function App() {
               Let's Fix Your Foundation
             </h3>
             <p className="text-xs text-gray-400 mb-6">
-              Contact me directly to get all {totalErrors} fixes implemented
-              within 24 hours.
+              Contact me directly to get all {techErrors.length} technical fixes
+              implemented within 24 hours.
             </p>
 
             <div className="bg-gray-900 rounded-xl p-4 mb-6 border border-gray-800">
               <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                Direct Line
+                Dynamic Quote
               </p>
-              <p className="text-lg font-mono font-bold text-white tracking-widest">
-                +91 9987455707
+              <p className="text-2xl font-mono font-bold text-emerald-400 tracking-widest">
+                ₹{dynamicPrice}
               </p>
             </div>
 
@@ -1301,7 +991,7 @@ export default function App() {
                 <Phone className="w-4 h-4" /> Call Now
               </a>
               <a
-                href={`https://wa.me/919987455707?text=${encodeURIComponent(`Hi Tabish, I want to hire you for the Foundation Fix for ${scanResult.domain}.`)}`}
+                href={`https://wa.me/919987455707?text=${encodeURIComponent(`Hi Tabish, I want to hire you for the Foundation Fix for ${scanResult.domain}. The quoted price is ₹${dynamicPrice}.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-emerald-500/20"
