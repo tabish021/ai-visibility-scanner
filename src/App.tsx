@@ -352,55 +352,58 @@ export default function App() {
         <header className="border-b border-gray-900/50 bg-gray-950/60 backdrop-blur-md sticky top-0 z-30">
           <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {/* NEW GRAPH LOGO REPLACING BOT ICON */}
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
+              {/* UPDATED GRAPH LOGO */}
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(34,197,94,0.15)]">
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
                   className="w-5 h-5 drop-shadow-[0_0_6px_rgba(52,211,153,0.8)]"
                 >
+                  {/* Bars - Bigger and thicker */}
                   <rect
                     x="3"
-                    y="14"
-                    width="3"
-                    height="6"
+                    y="13"
+                    width="5"
+                    height="8"
                     fill="currentColor"
-                    opacity="0.6"
-                    rx="0.5"
+                    rx="1.5"
                   />
                   <rect
-                    x="9"
+                    x="9.5"
                     y="9"
-                    width="3"
-                    height="11"
+                    width="5"
+                    height="12"
                     fill="currentColor"
-                    opacity="0.8"
-                    rx="0.5"
+                    rx="1.5"
                   />
                   <rect
-                    x="15"
-                    y="4"
-                    width="3"
+                    x="16"
+                    y="5"
+                    width="5"
                     height="16"
                     fill="currentColor"
-                    rx="0.5"
+                    rx="1.5"
                   />
+
+                  {/* Arrow - Smaller, separated, pointing up */}
                   <path
-                    d="M2 20 L20 2"
+                    d="M4 9 L18 3"
                     stroke="currentColor"
-                    strokeWidth="2.5"
+                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                   <path
-                    d="M12 2h8v8"
+                    d="M14 3 L18 3 L18 7"
                     stroke="currentColor"
-                    strokeWidth="2.5"
+                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                 </svg>
               </div>
+              {/* END OF LOGO */}
+
               <span className="font-extrabold text-white text-base">
                 AI Visibility Scanner
               </span>
