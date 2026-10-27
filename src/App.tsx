@@ -23,18 +23,19 @@ import {
   Phone,
   FileText,
   Code,
+  Award,
 } from "lucide-react";
 import axios from "axios";
 import { ScanResult, CheckCategory } from "./types";
 import { ScoreGauge } from "./components/ScoreGauge";
 import { CheckCard } from "./components/CheckCard";
 import { ScanSkeleton } from "./components/ScanSkeleton";
-import { ReportModal } from "./components/ReportModal";
 import { CursorGlow } from "./components/CursorGlow";
 import { RocketCursor } from "./components/RocketCursor";
 import { generatePdfReport } from "./utils/generatePdfReport";
 import { LiquidMetalButton } from "./components/liquid-metal-button";
 import { StarfieldBackground } from "./components/StarfieldBackground";
+import { Confetti } from "./components/Confetti"; // ADDED CONFETTI
 
 const SAMPLE_URLS = [
   "stripe.com",
@@ -80,7 +81,7 @@ const RECENT_SCAN_URLS = [
   "artifactuprising.com",
   "asburyparkbrewery.com",
   "voodoodoughnut.com",
-  "partnerscoffee.com ",
+  "partnerscoffee.com",
   "socksmith.com",
   "uglydrinks.com",
   "terraintrees.com",
@@ -178,7 +179,7 @@ export default function App() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
   const [tickerUrl, setTickerUrl] = useState(RECENT_SCAN_URLS[0]);
   const [history, setHistory] = useState<ScanResult[]>([]);
   const [fixedChecks, setFixedChecks] = useState<string[]>([]);
@@ -190,7 +191,9 @@ export default function App() {
   const [compareResult, setCompareResult] = useState<ScanResult | null>(null);
   const [isComparing, setIsComparing] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [contactMode, setContactMode] = useState<
+    "tech" | "content" | "perfect" | null
+  >(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -257,14 +260,13 @@ export default function App() {
     );
   }, [scanResult]);
 
-  // DYNAMIC PRICING CALCULATION
   const dynamicPrice = useMemo(() => {
     if (techErrors.length === 0) return 0;
-    let price = 499; // Base Fee
+    let price = 499;
     techErrors.forEach((err) => {
       price += FIX_PRICES[err.id] || 500;
     });
-    return Math.min(7999, price); // Cap at 7999
+    return Math.min(7999, price);
   }, [techErrors]);
 
   const handleScan = async (targetUrlToScan?: string) => {
@@ -367,6 +369,7 @@ export default function App() {
       <StarfieldBackground />
       <CursorGlow />
       <RocketCursor />
+      <Confetti active={currentScore === 100} />
 
       <div className="w-full bg-emerald-950/80 border-b border-emerald-500/20 text-emerald-400 text-[10px] font-mono py-1.5 flex items-center justify-center gap-2 z-50 backdrop-blur-md">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -544,59 +547,87 @@ export default function App() {
                 ))}
               </div>
 
-              <div className="w-full max-w-4xl mt-10 p-5 rounded-2xl bg-gray-900/80 border border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div>
-                  <h4 className="text-base font-bold text-white flex items-center gap-2">
-                    <Code className="w-4 h-4 text-emerald-400" /> Technical
-                    Foundation
-                  </h4>
-                  <p className="text-xs text-gray-400 mt-1">
-                    You have{" "}
-                    <span className="text-rose-400 font-bold">
-                      {techErrors.length} technical errors
-                    </span>{" "}
-                    blocking AI from reading your site. I can fix all of these
-                    within 24 hours.
-                  </p>
-                </div>
-                <div className="flex gap-2 flex-wrap shrink-0">
-                  <button
-                    onClick={() => setIsReportModalOpen(true)}
-                    className="btn-water btn-water-dark flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-gray-950 font-bold text-xs"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" /> Free Report
-                  </button>
-                  <button
-                    onClick={() => setIsContactModalOpen(true)}
-                    className="btn-water btn-water-emerald flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-200 border border-gray-700 text-xs font-bold"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Fix My Tech (₹
-                    {dynamicPrice})
-                  </button>
-                </div>
-              </div>
-
-              {contentErrors.length > 0 && (
-                <div className="w-full max-w-4xl mt-4 p-4 rounded-2xl bg-gray-900/40 border border-gray-800/50 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-300 flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-purple-400" /> Content &
-                      Authority
-                    </h4>
-                    <p className="text-xs text-gray-500 mt-1">
-                      You have {contentErrors.length} content errors (e.g.,
-                      missing FAQ, no author bio). These require a custom
-                      monthly strategy.
-                    </p>
+              <div className="w-full max-w-4xl mt-10 space-y-4">
+                {techErrors.length > 0 && (
+                  <div className="p-5 rounded-2xl bg-gray-900/80 border border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-base font-bold text-white flex items-center gap-2">
+                        <Code className="w-4 h-4 text-emerald-400" /> Technical
+                        Foundation
+                      </h4>
+                      <p className="text-xs text-gray-400 mt-1">
+                        You have{" "}
+                        <span className="text-rose-400 font-bold">
+                          {techErrors.length} technical errors
+                        </span>{" "}
+                        blocking AI from reading your site. I can fix all of
+                        these within 24 hours.
+                      </p>
+                    </div>
+                    <div className="flex gap-2 flex-wrap shrink-0">
+                      <button
+                        onClick={initiatePdfDownload}
+                        className="btn-water btn-water-dark flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-gray-950 font-bold text-xs"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" /> Free Report
+                      </button>
+                      <button
+                        onClick={() => setContactMode("tech")}
+                        className="btn-water btn-water-emerald flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-200 border border-gray-700 text-xs font-bold"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Fix My Tech (₹
+                        {dynamicPrice})
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => setIsContactModalOpen(true)}
-                    className="text-xs font-bold text-purple-400 hover:text-purple-300 underline"
-                  >
-                    Discuss Content Strategy
-                  </button>
-                </div>
-              )}
+                )}
+
+                {contentErrors.length > 0 && (
+                  <div className="p-4 rounded-2xl bg-gray-900/40 border border-gray-800/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-300 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-purple-400" /> Content
+                        & Authority
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-1">
+                        You have {contentErrors.length} content errors (e.g.,
+                        missing FAQ, no author bio). These require a custom
+                        monthly strategy.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setContactMode("content")}
+                      className="text-xs font-bold text-purple-400 hover:text-purple-300 underline"
+                    >
+                      Discuss Content Strategy
+                    </button>
+                  </div>
+                )}
+
+                {techErrors.length === 0 && contentErrors.length === 0 && (
+                  <div className="p-8 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex flex-col items-center text-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/40">
+                      <Award className="w-8 h-8 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-bold text-white mb-2">
+                        Your website foundation is fully optimized!
+                      </h4>
+                      <p className="text-sm text-gray-400 max-w-lg mx-auto">
+                        You passed all 17 technical and content checks. Now
+                        let's work on building your authority and ranking it to
+                        the top.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setContactMode("perfect")}
+                      className="btn-water btn-water-emerald mt-2 px-6 py-3 rounded-xl bg-emerald-500 text-gray-950 font-bold text-sm shadow-lg shadow-emerald-500/20"
+                    >
+                      Discuss Content Strategy
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -614,7 +645,6 @@ export default function App() {
                   viewports, and clean document metadata required for indexing.
                 </p>
               </div>
-
               <div className="p-6 rounded-2xl bg-gray-900/60 backdrop-blur-sm border border-gray-800/80">
                 <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-4">
                   <Bot className="w-5 h-5" />
@@ -628,7 +658,6 @@ export default function App() {
                   signals.
                 </p>
               </div>
-
               <div className="p-6 rounded-2xl bg-gray-900/60 backdrop-blur-sm border border-gray-800/80">
                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-4">
                   <Zap className="w-5 h-5" />
@@ -661,13 +690,6 @@ export default function App() {
           </div>
         </footer>
       </div>
-
-      <ReportModal
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-        domain={scanResult?.domain}
-        targetUrl={scanResult?.url}
-      />
 
       {isLeadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
@@ -717,7 +739,6 @@ export default function App() {
             <p className="text-xs text-gray-400 mb-4">
               See how your score stacks up in every category.
             </p>
-
             <div className="flex gap-2 mb-6">
               <input
                 value={compareUrl}
@@ -733,7 +754,6 @@ export default function App() {
                 {isComparing ? "Scanning..." : "Scan"}
               </button>
             </div>
-
             {compareResult && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between bg-gray-900 p-4 rounded-xl border border-gray-800">
@@ -759,7 +779,6 @@ export default function App() {
                     </p>
                   </div>
                 </div>
-
                 <div className="space-y-3">
                   <div className="bg-gray-900 p-3 rounded-lg border border-gray-800">
                     <div className="flex justify-between text-xs font-semibold mb-2">
@@ -802,7 +821,6 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-
                   <div className="bg-gray-900 p-3 rounded-lg border border-gray-800">
                     <div className="flex justify-between text-xs font-semibold mb-2">
                       <span className="text-cyan-400">AI Visibility (GEO)</span>
@@ -844,7 +862,6 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-
                   <div className="bg-gray-900 p-3 rounded-lg border border-gray-800">
                     <div className="flex justify-between text-xs font-semibold mb-2">
                       <span className="text-purple-400">
@@ -928,61 +945,71 @@ export default function App() {
                     </div>
                   </div>
                 ))}
-
-              <div className="p-4 bg-emerald-950/30 rounded-xl border border-emerald-500/30 mt-6 text-center">
-                <p className="text-sm text-white font-bold mb-2">
-                  Want me to fix all of this for you?
-                </p>
-                <p className="text-xs text-gray-400 mb-3">
-                  I can implement all {techErrors.length} technical fixes within
-                  24 hours.
-                </p>
-                <button
-                  onClick={() => {
-                    setIsAiModalOpen(false);
-                    setIsContactModalOpen(true);
-                  }}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold px-6 py-2 rounded-lg transition-colors"
-                >
-                  Fix My Technical Foundation (₹{dynamicPrice})
-                </button>
-              </div>
+              {techErrors.length > 0 && (
+                <div className="p-4 bg-emerald-950/30 rounded-xl border border-emerald-500/30 mt-6 text-center">
+                  <p className="text-sm text-white font-bold mb-2">
+                    Want me to fix all of this for you?
+                  </p>
+                  <p className="text-xs text-gray-400 mb-3">
+                    I can implement all {techErrors.length} technical fixes
+                    within 24 hours.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setIsAiModalOpen(false);
+                      setContactMode("tech");
+                    }}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold px-6 py-2 rounded-lg transition-colors"
+                  >
+                    Fix My Technical Foundation (₹{dynamicPrice})
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {isContactModalOpen && scanResult && (
+      {contactMode && scanResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 w-full max-w-sm relative text-center">
             <button
-              onClick={() => setIsContactModalOpen(false)}
+              onClick={() => setContactMode(null)}
               className="absolute top-4 right-4 text-gray-500 hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
-
             <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
-              <Sparkles className="w-8 h-8 text-emerald-400" />
+              {contactMode === "tech" ? (
+                <Code className="w-8 h-8 text-emerald-400" />
+              ) : (
+                <FileText className="w-8 h-8 text-purple-400" />
+              )}
             </div>
-
             <h3 className="text-xl font-bold text-white mb-2">
-              Let's Fix Your Foundation
+              {contactMode === "tech"
+                ? "Let's Fix Your Foundation"
+                : contactMode === "content"
+                  ? "Discuss Content Strategy"
+                  : "Rank to the Top"}
             </h3>
             <p className="text-xs text-gray-400 mb-6">
-              Contact me directly to get all {techErrors.length} technical fixes
-              implemented within 24 hours.
+              {contactMode === "tech"
+                ? `Contact me to get all ${techErrors.length} technical fixes implemented within 24 hours.`
+                : contactMode === "content"
+                  ? `Contact me to discuss how to build your authority and fix your ${contentErrors.length} content issues.`
+                  : "Your foundation is perfect. Let's build your authority to rank higher."}
             </p>
-
-            <div className="bg-gray-900 rounded-xl p-4 mb-6 border border-gray-800">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                Dynamic Quote
-              </p>
-              <p className="text-2xl font-mono font-bold text-emerald-400 tracking-widest">
-                ₹{dynamicPrice}
-              </p>
-            </div>
-
+            {contactMode === "tech" && (
+              <div className="bg-gray-900 rounded-xl p-4 mb-6 border border-gray-800">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
+                  Dynamic Quote
+                </p>
+                <p className="text-2xl font-mono font-bold text-emerald-400 tracking-widest">
+                  ₹{dynamicPrice}
+                </p>
+              </div>
+            )}
             <div className="flex flex-col gap-3">
               <a
                 href="tel:+919987455707"
@@ -991,7 +1018,7 @@ export default function App() {
                 <Phone className="w-4 h-4" /> Call Now
               </a>
               <a
-                href={`https://wa.me/919987455707?text=${encodeURIComponent(`Hi Tabish, I want to hire you for the Foundation Fix for ${scanResult.domain}. The quoted price is ₹${dynamicPrice}.`)}`}
+                href={`https://wa.me/919987455707?text=${encodeURIComponent(contactMode === "tech" ? `Hi Tabish, I want to hire you for the Foundation Fix for ${scanResult.domain}. The quoted price is ₹${dynamicPrice}.` : contactMode === "content" ? `Hi Tabish, I want to discuss a content strategy for my website (${scanResult.domain}).` : `Hi Tabish, my website (${scanResult.domain}) passed all tests! I want to discuss ranking it to the top.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-emerald-500/20"
