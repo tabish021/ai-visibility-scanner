@@ -1,21 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { Bot, Search, Database, Globe2, Loader2, Sparkles } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import { Bot, Search, Database, Globe2, Loader2, Sparkles } from "lucide-react";
 
 interface ScanSkeletonProps {
   targetUrl: string;
 }
 
 const SCAN_STEPS = [
-  'Resolving domain and establishing secure connection...',
-  'Fetching raw server HTML response (SPA Shell audit)...',
-  'Parsing SEO title, canonical, and heading hierarchy...',
-  'Querying /llms.txt knowledge file...',
-  'Testing robots.txt permissions for GPTBot & PerplexityBot...',
-  'Extracting JSON-LD Schema and LocalBusiness entities...',
-  'Auditing image alt attributes and content word density...',
-  'Inspecting NAP (Name, Address, Phone) citation signals...',
-  'Sampling internal hyperlinks for dead response codes...',
-  'Synthesizing 17-point AI Visibility Score...',
+  "Resolving domain and establishing secure connection...",
+  "Fetching raw server HTML response (Access & Indexability)...",
+  "Auditing indexability, meta robots, and sitemaps...",
+  "Testing bots (GPTBot, PerplexityBot) and firewalls...",
+  "Parsing SEO title, description, and heading hierarchy...",
+  "Measuring page speed and Core Web Vitals...",
+  "Extracting JSON-LD Schema and Organization entities...",
+  "Scanning for E-E-A-T trust signals and social profiles...",
+  "Synthesizing 19-point AI Visibility Score...",
 ];
 
 export const ScanSkeleton: React.FC<ScanSkeletonProps> = ({ targetUrl }) => {
@@ -24,7 +23,7 @@ export const ScanSkeleton: React.FC<ScanSkeletonProps> = ({ targetUrl }) => {
   useEffect(() => {
     const timer = setInterval(() => {
       setStepIndex((prev) => (prev < SCAN_STEPS.length - 1 ? prev + 1 : prev));
-    }, 600);
+    }, 800); // Slightly slower so they can read the text
     return () => clearInterval(timer);
   }, []);
 
@@ -48,7 +47,7 @@ export const ScanSkeleton: React.FC<ScanSkeletonProps> = ({ targetUrl }) => {
             Active Scan: {targetUrl}
           </div>
           <h3 className="text-lg font-bold text-white tracking-tight">
-            Running 17-Point AI Visibility Diagnostic
+            Running 19-Point AI Visibility Diagnostic
           </h3>
           <p className="text-xs text-gray-400 font-mono mt-1 min-h-[20px] transition-all">
             {SCAN_STEPS[stepIndex]}
@@ -69,7 +68,10 @@ export const ScanSkeleton: React.FC<ScanSkeletonProps> = ({ targetUrl }) => {
           </div>
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-14 bg-gray-950/60 rounded-xl border border-gray-800/60 flex items-center px-4 gap-3">
+              <div
+                key={i}
+                className="h-14 bg-gray-950/60 rounded-xl border border-gray-800/60 flex items-center px-4 gap-3"
+              >
                 <div className="w-6 h-6 rounded-full bg-gray-800 shrink-0"></div>
                 <div className="flex-1 space-y-1.5">
                   <div className="h-3 w-40 bg-gray-800 rounded"></div>
@@ -91,7 +93,10 @@ export const ScanSkeleton: React.FC<ScanSkeletonProps> = ({ targetUrl }) => {
           </div>
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-14 bg-gray-950/60 rounded-xl border border-gray-800/60 flex items-center px-4 gap-3">
+              <div
+                key={i}
+                className="h-14 bg-gray-950/60 rounded-xl border border-gray-800/60 flex items-center px-4 gap-3"
+              >
                 <div className="w-6 h-6 rounded-full bg-gray-800 shrink-0"></div>
                 <div className="flex-1 space-y-1.5">
                   <div className="h-3 w-48 bg-gray-800 rounded"></div>
