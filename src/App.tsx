@@ -121,26 +121,32 @@ export default function App() {
     let score = scanResult.overall.score;
     fixedChecks.forEach((id) => {
       const check = scanResult.checks.find((c) => c.id === id);
-      if (check && check.status === "fail") score += check.weight * 0.4;
-      if (check && check.status === "warn") score += check.weight * 0.2;
+      if (check) {
+        const s = check.status?.toUpperCase();
+        if (s === "FAIL") score += check.weight * 0.4;
+        if (s === "WARN") score += check.weight * 0.2;
+      }
     });
     return Math.min(100, Math.round(score));
   }, [scanResult, fixedChecks]);
 
   const techErrors = useMemo(() => {
     if (!scanResult) return [];
-    return scanResult.checks.filter(
-      (c) =>
-        (c.status === "fail" || c.status === "warn") &&
-        (c.category === "A" || c.category === "B"),
-    );
+    return scanResult.checks.filter((c) => {
+      const s = c.status?.toUpperCase();
+      return (
+        (s === "FAIL" || s === "WARN") &&
+        (c.category === "A" || c.category === "B")
+      );
+    });
   }, [scanResult]);
 
   const contentErrors = useMemo(() => {
     if (!scanResult) return [];
-    return scanResult.checks.filter(
-      (c) => (c.status === "fail" || c.status === "warn") && c.category === "C",
-    );
+    return scanResult.checks.filter((c) => {
+      const s = c.status?.toUpperCase();
+      return (s === "FAIL" || s === "WARN") && c.category === "C";
+    });
   }, [scanResult]);
 
   const dynamicPrice = useMemo(() => {
@@ -252,9 +258,10 @@ export default function App() {
 
   const isPerfectScore = useMemo(() => {
     if (!scanResult) return false;
-    const failed = scanResult.checks.filter(
-      (c) => c.status === "fail" || c.status === "warn",
-    );
+    const failed = scanResult.checks.filter((c) => {
+      const s = c.status?.toUpperCase();
+      return s === "FAIL" || s === "WARN";
+    });
     return scanResult.overall.score >= 90 && failed.length === 0;
   }, [scanResult]);
 
@@ -510,7 +517,12 @@ export default function App() {
                     </h3>
                     <div className="space-y-3">
                       {seoChecks.map((check) => (
-                        <CheckCard key={check.id} check={check} />
+                        <CheckCard
+                          key={check.id}
+                          check={check}
+                          isFixed={fixedChecks.includes(check.id)}
+                          onToggleFix={toggleFix}
+                        />
                       ))}
                     </div>
                   </div>
@@ -522,7 +534,12 @@ export default function App() {
                     </h3>
                     <div className="space-y-3">
                       {geoChecks.map((check) => (
-                        <CheckCard key={check.id} check={check} />
+                        <CheckCard
+                          key={check.id}
+                          check={check}
+                          isFixed={fixedChecks.includes(check.id)}
+                          onToggleFix={toggleFix}
+                        />
                       ))}
                     </div>
                   </div>
@@ -534,7 +551,12 @@ export default function App() {
                     </h3>
                     <div className="space-y-3">
                       {aeoChecks.map((check) => (
-                        <CheckCard key={check.id} check={check} />
+                        <CheckCard
+                          key={check.id}
+                          check={check}
+                          isFixed={fixedChecks.includes(check.id)}
+                          onToggleFix={toggleFix}
+                        />
                       ))}
                     </div>
                   </div>
@@ -713,7 +735,6 @@ export default function App() {
         </footer>
       </div>
 
-      {/* MODALS... (Keep the Lead, Compare, AI Guide, and Contact modals from the previous code) */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 w-full max-w-sm relative">
@@ -823,7 +844,10 @@ export default function App() {
             </div>
             <div className="space-y-4">
               {scanResult.checks
-                .filter((c) => c.status === "fail" || c.status === "warn")
+                .filter((c) => {
+                  const s = c.status?.toUpperCase();
+                  return s === "FAIL" || s === "WARN";
+                })
                 .map((check) => (
                   <div
                     key={check.id}
