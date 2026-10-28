@@ -4,15 +4,23 @@ import path from "path";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import dns from "dns";
-import https from "https"; // 🛡️ BULLETPROOFING FIX: Added for SSL bypass
+import https from "https";
 
 dns.setDefaultResultOrder("ipv4first");
+
+// 🛡️ BULLETPROOFING FIX: Force IPv4 at the Agent level
+// This is the most reliable way to prevent ENETUNREACH errors on Render.
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false,
+  family: 4, // Forces IPv4 only
+});
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
+// --- SCANNER LOGIC ---
 export type CheckCategory = "SEO" | "GEO" | "AEO";
 export type CheckStatus = "pass" | "warn" | "fail";
 
@@ -66,13 +74,12 @@ async function testLink(href: string, baseUrl: string): Promise<boolean> {
   try {
     const resolved = new URL(href, baseUrl).toString();
     const res = await axios.get(resolved, {
-      timeout: 3500,
+      timeout: 5000,
       maxRedirects: 3,
-      // 🛡️ BULLETPROOFING FIX: Ignore SSL errors on link checks
-      httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+      httpsAgent: httpsAgent, // 🛡️ Reuse the IPv4 agent
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; AIVisibilityBot/1.0; +https://aivisibilityscanner.app)",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       },
       validateStatus: (status) => status < 400,
     });
@@ -89,16 +96,17 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
   const origin = parsedUrl.origin;
 
   const client = axios.create({
-    timeout: 15000,
+    timeout: 20000, // 🛡️ Increased to 20s for slower sites
     maxRedirects: 5,
     validateStatus: () => true,
-    // 🛡️ BULLETPROOFING FIX 1: Ignore expired SSL certificates on main scan
-    httpsAgent: new https.Agent({ rejectUnauthorized: false }),
-    // 🛡️ BULLETPROOFING FIX 2: Prevent server crash on massive 10MB+ websites
-    maxContentLength: 5 * 1024 * 1024,
+    httpsAgent: httpsAgent, // 🛡️ Reuse the IPv4 agent
+    maxContentLength: 10 * 1024 * 1024, // 🛡️ Increased to 10MB
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 (compatible; AIVisibilityBot/1.0)",
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.5",
     },
   });
 
@@ -631,7 +639,6 @@ app.post("/api/scan", async (req, res) => {
   } catch (err: any) {
     console.error("Scan error:", err);
 
-    // 🛡️ BULLETPROOFING FIX 3: Handle errors gracefully
     if (
       err.code === "ETIMEDOUT" ||
       err.code === "ENETUNREACH" ||
@@ -656,7 +663,7 @@ app.post("/api/scan", async (req, res) => {
       return res
         .status(500)
         .json({
-          error: "This website is too large to scan (over 5MB of HTML).",
+          error: "This website is too large to scan (over 10MB of HTML).",
         });
     }
 
