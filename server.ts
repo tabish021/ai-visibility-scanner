@@ -19,7 +19,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// --- CONSTANTS & PRICING ---
 const FIX_PRICES: Record<string, number> = {
   C01: 900,
   C02: 600,
@@ -40,7 +39,6 @@ const FIX_PRICES: Record<string, number> = {
   C18: 100,
 };
 
-// --- HELPERS ---
 function normalizeUrl(input: string): URL {
   let cleaned = input.trim();
   if (!cleaned.startsWith("http://") && !cleaned.startsWith("https://")) {
@@ -54,13 +52,16 @@ async function fetchPSI(url: string, apiKey: string) {
     console.log("⚠️ No PageSpeed API key provided.");
     return null;
   }
+
+  const cleanKey = apiKey.trim();
+
   try {
     const res = await axios.get(
       `https://www.googleapis.com/pagespeedonline/v5/runPagespeed`,
       {
-        params: { url, key: apiKey, strategy: "mobile" },
-        timeout: 25000, // Wait up to 25 seconds
-        httpsAgent: httpsAgent, // Use our IPv4 agent
+        params: { url, key: cleanKey, strategy: "mobile" },
+        timeout: 60000, // INCREASED TO 60 SECONDS
+        httpsAgent: httpsAgent,
       },
     );
 
@@ -74,14 +75,13 @@ async function fetchPSI(url: string, apiKey: string) {
     return { lcp, cls, tbt };
   } catch (e: any) {
     console.error(
-      "PageSpeed API Error:",
+      "❌ PageSpeed API Error:",
       e.response?.data?.error?.message || e.message,
     );
     return null;
   }
 }
 
-// --- MAIN SCANNER ---
 async function runScanner(
   targetUrl: string,
   isLocal: boolean,
@@ -90,6 +90,9 @@ async function runScanner(
   const fullUrl = parsedUrl.toString();
   const domain = parsedUrl.hostname;
   const origin = parsedUrl.origin;
+
+  // 🚀 START PAGESPEED IMMEDIATELY IN THE BACKGROUND
+  const psiPromise = fetchPSI(fullUrl, process.env.PAGESPEED_API_KEY || "");
 
   const client = axios.create({
     timeout: 15000,
@@ -121,7 +124,6 @@ async function runScanner(
   const checks: CheckItem[] = [];
   const info: any[] = [];
 
-  // --- FETCH ROBOTS.TXT & SITEMAP ---
   let robotsTxt = "";
   let robotsFound = false;
   let sitemapFound = false;
@@ -140,10 +142,6 @@ async function runScanner(
       if (sitemapRes.status === 200) sitemapFound = true;
     } catch {}
   }
-
-  // ==========================================
-  // CATEGORY A: ACCESS AND INDEXABILITY
-  // ==========================================
 
   let c01Status: CheckStatus = "PASS";
   let c01Found = "Page returns 200 OK and is allowed to be indexed.";
@@ -263,10 +261,6 @@ async function runScanner(
     fix: "Create and submit a sitemap.xml file.",
   });
 
-  // ==========================================
-  // CATEGORY B: PAGE QUALITY
-  // ==========================================
-
   const title = $("title").text().trim();
   let c07Status: CheckStatus = "PASS";
   if (!title) c07Status = "FAIL";
@@ -369,9 +363,12 @@ async function runScanner(
     fix: "Add descriptive alt text.",
   });
 
+  // 🚀 AWAIT THE PAGESPEED RESULT HERE
   let c13Status: CheckStatus = "N/A";
   let c13Found = "Speed test unavailable right now.";
-  const psiData = await fetchPSI(fullUrl, process.env.PAGESPEED_API_KEY || "");
+
+  const psiData = await psiPromise;
+
   if (psiData) {
     if (psiData.lcp > 4000 || psiData.cls > 0.25) {
       c13Status = "FAIL";
@@ -405,10 +402,6 @@ async function runScanner(
     why: "Dead links frustrate users and crawlers.",
     fix: "Fix broken links.",
   });
-
-  // ==========================================
-  // CATEGORY C: TRUST AND IDENTITY
-  // ==========================================
 
   const jsonLd = $('script[type="application/ld+json"]');
   let hasOrg = false;
@@ -503,7 +496,6 @@ async function runScanner(
     fix: "Write at least 300 words of helpful content.",
   });
 
-  // --- INFO ROWS ---
   info.push({
     id: "I01",
     name: "llms.txt",
@@ -535,9 +527,6 @@ async function runScanner(
     note: `${rawWords} words.`,
   });
 
-  // ==========================================
-  // SCORING & PRICING ENGINE
-  // ==========================================
   let aPoints = 0,
     aMax = 0;
   let bPoints = 0,
@@ -581,33 +570,14 @@ async function runScanner(
   const scoreC = cMax > 0 ? (cPoints / cMax) * 100 : 0;
 
   let overallRaw = scoreA * 0.4 + scoreB * 0.3 + scoreC * 0.3;
-
-  if (hasBlockingIssue) {
-    overallRaw = Math.min(overallRaw, 49);
-  }
-
+  if (hasBlockingIssue) overallRaw = Math.min(overallRaw, 49);
   const finalScore = Math.round(overallRaw);
 
   let label = "Major gaps";
-  let reportLine =
-    "Several important signals are missing. Fixing these first will make the biggest difference.";
-  if (finalScore >= 90) {
-    label = "Strong foundation";
-    reportLine =
-      "Search engines and AI tools can find and read your site. Only small improvements remain.";
-  } else if (finalScore >= 75) {
-    label = "Good foundation";
-    reportLine =
-      "The essentials are in place. A few fixes will make your site easier to find and trust.";
-  } else if (finalScore >= 50) {
-    label = "Needs work";
-    reportLine =
-      "Some important gaps are holding your site back. The fixes below are the best place to start.";
-  } else if (hasBlockingIssue) {
-    label = "Blocked";
-    reportLine =
-      "Search or AI crawlers cannot reach or read this page. Fix this first, because nothing else matters until it is solved.";
-  }
+  if (finalScore >= 90) label = "Strong foundation";
+  else if (finalScore >= 75) label = "Good foundation";
+  else if (finalScore >= 50) label = "Needs work";
+  else if (hasBlockingIssue) label = "Blocked";
 
   return {
     scanner_version: "2.0",
@@ -637,8 +607,6 @@ async function runScanner(
     },
   };
 }
-
-// --- API ROUTES ---
 
 app.post("/api/scan", async (req, res) => {
   const { url, isLocal } = req.body;
