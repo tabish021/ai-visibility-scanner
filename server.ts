@@ -3,9 +3,9 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import axios from "axios";
 import * as cheerio from "cheerio";
-import dns from "dns"; // ADDED: Import DNS module
+import dns from "dns";
+import https from "https"; // 🛡️ BULLETPROOFING FIX: Added for SSL bypass
 
-// ADDED: Force Node.js to use IPv4 first (Fixes ENETUNREACH on Render)
 dns.setDefaultResultOrder("ipv4first");
 
 const app = express();
@@ -13,7 +13,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// --- SCANNER LOGIC ---
 export type CheckCategory = "SEO" | "GEO" | "AEO";
 export type CheckStatus = "pass" | "warn" | "fail";
 
@@ -69,6 +68,8 @@ async function testLink(href: string, baseUrl: string): Promise<boolean> {
     const res = await axios.get(resolved, {
       timeout: 3500,
       maxRedirects: 3,
+      // 🛡️ BULLETPROOFING FIX: Ignore SSL errors on link checks
+      httpsAgent: new https.Agent({ rejectUnauthorized: false }),
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; AIVisibilityBot/1.0; +https://aivisibilityscanner.app)",
@@ -88,13 +89,17 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
   const origin = parsedUrl.origin;
 
   const client = axios.create({
-    timeout: 15000, // CHANGED: Increased from 9000 to 15000 for slower sites
+    timeout: 15000,
+    maxRedirects: 5,
+    validateStatus: () => true,
+    // 🛡️ BULLETPROOFING FIX 1: Ignore expired SSL certificates on main scan
+    httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+    // 🛡️ BULLETPROOFING FIX 2: Prevent server crash on massive 10MB+ websites
+    maxContentLength: 5 * 1024 * 1024,
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 (compatible; AIVisibilityBot/1.0)",
     },
-    maxRedirects: 5,
-    validateStatus: () => true,
   });
 
   let html = "";
@@ -238,7 +243,6 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
 
   const checks: CheckItem[] = [];
 
-  // SEO Checks
   const rawTitle = $("title").first().text().replace(/\s+/g, " ").trim();
   checks.push({
     id: "seo-title",
@@ -253,6 +257,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixTip: "Add a descriptive <title> tag between 40-60 characters.",
     fixCode: `<title>${domain} - Leading Solutions</title>`,
   });
+
   checks.push({
     id: "seo-h1",
     name: "Single H1 Heading",
@@ -267,6 +272,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixTip: "Wrap your main headline in a single <h1> tag.",
     fixCode: `<h1>Transform Your Workflow</h1>`,
   });
+
   checks.push({
     id: "seo-h2",
     name: "H2 Subheadings Present",
@@ -277,6 +283,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixTip: "Divide page content into distinct topic blocks using <h2> tags.",
     fixCode: `<h2>Key Features</h2>`,
   });
+
   const canonicalHref = $('link[rel="canonical"]').attr("href")?.trim();
   checks.push({
     id: "seo-canonical",
@@ -294,6 +301,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixTip: "Add a self-referencing canonical tag in the <head>.",
     fixCode: `<link rel="canonical" href="${origin}/" />`,
   });
+
   const viewportContent = $('meta[name="viewport"]').attr("content")?.trim();
   checks.push({
     id: "seo-viewport",
@@ -310,7 +318,6 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixCode: `<meta name="viewport" content="width=device-width, initial-scale=1.0" />`,
   });
 
-  // GEO Checks
   checks.push({
     id: "geo-spa-shell",
     name: "Raw HTML Content Visibility",
@@ -329,6 +336,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
       "Implement Server-Side Rendering (SSR) or Static Site Generation (SSG).",
     fixCode: `// Use vite-plugin-prerender`,
   });
+
   checks.push({
     id: "geo-llms-txt",
     name: "llms.txt AI Knowledge File",
@@ -340,6 +348,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixTip: "Deploy an /llms.txt file at the root.",
     fixCode: `# ${domain} - LLM Context File`,
   });
+
   const ogTitle = $('meta[property="og:title"]').attr("content")?.trim();
   const ogImage = $('meta[property="og:image"]').attr("content")?.trim();
   checks.push({
@@ -354,6 +363,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixTip: "Add OpenGraph metadata to your <head>.",
     fixCode: `<meta property="og:title" content="${rawTitle || domain}" />`,
   });
+
   checks.push({
     id: "geo-img-alt",
     name: "Image Alt Text Coverage",
@@ -371,6 +381,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixTip: "Add descriptive alt text to all informative images.",
     fixCode: `<img src="chart.png" alt="Annual customer growth graph" />`,
   });
+
   checks.push({
     id: "geo-word-count",
     name: "Substantive Word Count",
@@ -380,6 +391,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixTip: "Expand content with descriptive copy to reach 300+ words.",
     fixCode: `<!-- Add 2-3 detailed paragraphs -->`,
   });
+
   const authorKeywords =
     /(about us|our team|meet the team|founder|co-founder|leadership|author|written by|reviewed by|about the company)/i;
   const hasAboutLink =
@@ -392,6 +404,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
       );
     }).length > 0;
   const hasTrustInBody = authorKeywords.test(cleanContentText);
+
   checks.push({
     id: "geo-trust-signals",
     name: "Author & E-E-A-T Trust Signals",
@@ -405,7 +418,6 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixCode: `<div class="author-attribution"><p>Published by <strong>Founder</strong></p></div>`,
   });
 
-  // AEO Checks
   checks.push({
     id: "aeo-json-ld",
     name: "JSON-LD Structured Data Schema",
@@ -418,6 +430,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixTip: "Inject a JSON-LD structured data block.",
     fixCode: `<script type="application/ld+json">...</script>`,
   });
+
   checks.push({
     id: "aeo-local-business",
     name: "LocalBusiness / Org Schema",
@@ -429,6 +442,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixTip: "Add LocalBusiness JSON-LD markup.",
     fixCode: `<script type="application/ld+json">...</script>`,
   });
+
   const hasFaqText =
     /(frequently asked questions|faq\b|q&a\b|common questions)/i.test(
       cleanContentText,
@@ -454,6 +468,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
     fixTip: "Add a FAQ section with structured FAQPage schema.",
     fixCode: `<section id="faq">...</section>`,
   });
+
   if (!robotsTxtFound) {
     checks.push({
       id: "aeo-robots-ai",
@@ -485,12 +500,14 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
       fixCode: `User-agent: GPTBot\nAllow: /`,
     });
   }
+
   const phoneRegex =
     /(?:\+91[\s.-]?[6-9]\d{9}|\b[6-9]\d{9}\b|\+?1?[\s.-]?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})/i;
   const addressRegex =
     /(address|location|headquarters|office location|our studio|pincode)/i;
   const hasPhone = phoneRegex.test(html);
   const hasAddress = addressRegex.test(html);
+
   checks.push({
     id: "aeo-nap",
     name: "NAP (Name, Address, Phone)",
@@ -509,6 +526,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
       "Ensure both a standard telephone number and full address appear in footer.",
     fixCode: `<footer><p><strong>Address:</strong> 123 Innovation Boulevard</p></footer>`,
   });
+
   checks.push({
     id: "aeo-broken-links",
     name: "Broken Navigation Links",
@@ -595,8 +613,6 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
   };
 }
 
-// --- API ROUTES ---
-
 app.post("/api/scan", async (req, res) => {
   const { url } = req.body;
   if (!url || typeof url !== "string")
@@ -604,7 +620,6 @@ app.post("/api/scan", async (req, res) => {
       .status(400)
       .json({ error: "Please provide a valid website URL." });
 
-  // LOG 1: WHO SCANNED WHAT
   console.log(`\n========================================`);
   console.log(`🔍 NEW SCAN: ${url}`);
   console.log(`🕒 Time: ${new Date().toLocaleString()}`);
@@ -616,16 +631,33 @@ app.post("/api/scan", async (req, res) => {
   } catch (err: any) {
     console.error("Scan error:", err);
 
-    // CHANGED: Catch network timeouts or blocked connections cleanly
+    // 🛡️ BULLETPROOFING FIX 3: Handle errors gracefully
     if (
       err.code === "ETIMEDOUT" ||
       err.code === "ENETUNREACH" ||
       err.message.includes("timeout")
     ) {
-      return res.status(500).json({
-        error:
-          "Could not reach this website. It may be down, or it has a firewall blocking automated scans.",
-      });
+      return res
+        .status(500)
+        .json({
+          error:
+            "Could not reach this website. It may be down, or it has a firewall blocking automated scans.",
+        });
+    }
+    if (err.code === "ERR_FR_TOO_MANY_REDIRECTS") {
+      return res
+        .status(500)
+        .json({
+          error:
+            "This website has a broken redirect loop and could not be scanned.",
+        });
+    }
+    if (err.message.includes("maxContentLength")) {
+      return res
+        .status(500)
+        .json({
+          error: "This website is too large to scan (over 5MB of HTML).",
+        });
     }
 
     res
@@ -634,18 +666,14 @@ app.post("/api/scan", async (req, res) => {
   }
 });
 
-// NEW ENDPOINT: Catch the email leads
 app.post("/api/lead", (req, res) => {
   const { email, domain } = req.body;
-
-  // LOG 2: WHO DOWNLOADED THE REPORT
   console.log(`\n========================================`);
   console.log(`🎯 NEW LEAD CAPTURED!`);
   console.log(`📧 Email: ${email}`);
   console.log(`🌐 Website: ${domain}`);
   console.log(`🕒 Time: ${new Date().toLocaleString()}`);
   console.log(`========================================\n`);
-
   res.json({ success: true });
 });
 
