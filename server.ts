@@ -40,8 +40,6 @@ const FIX_PRICES: Record<string, number> = {
   C18: 100,
 };
 
-const CATEGORY_WEIGHTS: Record<CheckCategory, number> = { A: 40, B: 30, C: 30 };
-
 // --- HELPERS ---
 function normalizeUrl(input: string): URL {
   let cleaned = input.trim();
@@ -52,16 +50,33 @@ function normalizeUrl(input: string): URL {
 }
 
 async function fetchPSI(url: string, apiKey: string) {
+  if (!apiKey) {
+    console.log("⚠️ No PageSpeed API key provided.");
+    return null;
+  }
   try {
     const res = await axios.get(
-      `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=mobile&key=${apiKey}`,
+      `https://www.googleapis.com/pagespeedonline/v5/runPagespeed`,
+      {
+        params: { url, key: apiKey, strategy: "mobile" },
+        timeout: 25000, // Wait up to 25 seconds
+        httpsAgent: httpsAgent, // Use our IPv4 agent
+      },
     );
-    const metrics = res.data.lighthouseResult?.audits;
-    const lcp = metrics?.["largest-contentful-paint"]?.numericValue || 0;
-    const cls = metrics?.["cumulative-layout-shift"]?.numericValue || 0;
-    const tbt = metrics?.["total-blocking-time"]?.numericValue || 0;
+
+    const audits = res.data.lighthouseResult?.audits;
+    if (!audits) return null;
+
+    const lcp = audits["largest-contentful-paint"]?.numericValue || 0;
+    const cls = audits["cumulative-layout-shift"]?.numericValue || 0;
+    const tbt = audits["total-blocking-time"]?.numericValue || 0;
+
     return { lcp, cls, tbt };
-  } catch (e) {
+  } catch (e: any) {
+    console.error(
+      "PageSpeed API Error:",
+      e.response?.data?.error?.message || e.message,
+    );
     return null;
   }
 }
@@ -130,7 +145,6 @@ async function runScanner(
   // CATEGORY A: ACCESS AND INDEXABILITY
   // ==========================================
 
-  // C01: Page is indexable
   let c01Status: CheckStatus = "PASS";
   let c01Found = "Page returns 200 OK and is allowed to be indexed.";
   if (status !== 200) {
@@ -152,10 +166,8 @@ async function runScanner(
     fix: "Remove noindex or fix the server error.",
   });
 
-  // C02: Robots.txt AI Permissions
   let c02Status: CheckStatus = "PASS";
   let c02Found = "Robots.txt allows search and AI bots.";
-  const blockedBots = [];
   if (
     robotsFound &&
     /User-agent:\s*(Googlebot|OAI-SearchBot|PerplexityBot)[\s\S]*?Disallow:\s*\//i.test(
@@ -164,7 +176,6 @@ async function runScanner(
   ) {
     c02Status = "FAIL";
     c02Found = "Robots.txt is blocking critical search/AI bots.";
-    blockedBots.push("Googlebot/OAI/Perplexity");
   }
   checks.push({
     id: "C02",
@@ -177,7 +188,6 @@ async function runScanner(
     fix: "Update robots.txt to allow search and AI bots.",
   });
 
-  // C03: Bot Fetch Test (Firewall Bypass)
   let c03Status: CheckStatus = "PASS";
   let c03Found = "No User-Agent blocking detected.";
   try {
@@ -207,7 +217,6 @@ async function runScanner(
     fix: "Whitelist AI crawlers in your firewall settings.",
   });
 
-  // C04: Readable HTML (Lightweight)
   $("script, style, noscript, template").remove();
   const rawText = $("body").text().replace(/\s+/g, " ").trim();
   const rawWords = rawText.split(" ").filter((w) => w.length > 1).length;
@@ -231,7 +240,6 @@ async function runScanner(
     fix: "Implement Server-Side Rendering (SSR) or pre-rendering.",
   });
 
-  // C05: HTTPS & Redirects (Simplified)
   const isHttps = fullUrl.startsWith("https");
   checks.push({
     id: "C05",
@@ -244,7 +252,6 @@ async function runScanner(
     fix: "Install an SSL certificate.",
   });
 
-  // C06: XML Sitemap
   checks.push({
     id: "C06",
     name: "XML sitemap",
@@ -260,7 +267,6 @@ async function runScanner(
   // CATEGORY B: PAGE QUALITY
   // ==========================================
 
-  // C07: Title Tag
   const title = $("title").text().trim();
   let c07Status: CheckStatus = "PASS";
   if (!title) c07Status = "FAIL";
@@ -276,7 +282,6 @@ async function runScanner(
     fix: "Write a 30-60 character title.",
   });
 
-  // C08: Meta Description
   const desc = $('meta[name="description"]').attr("content") || "";
   let c08Status: CheckStatus = "PASS";
   if (!desc) c08Status = "FAIL";
@@ -292,7 +297,6 @@ async function runScanner(
     fix: "Write a 70-160 character description.",
   });
 
-  // C09: Canonical Tag
   const canonical = $('link[rel="canonical"]').attr("href");
   checks.push({
     id: "C09",
@@ -305,7 +309,6 @@ async function runScanner(
     fix: "Add a self-referencing canonical tag.",
   });
 
-  // C10: Viewport
   const viewport = $('meta[name="viewport"]').attr("content");
   checks.push({
     id: "C10",
@@ -318,7 +321,6 @@ async function runScanner(
     fix: "Add width=device-width, initial-scale=1.",
   });
 
-  // C11: Heading Structure & Language
   const h1Count = $("h1").length;
   const h2Count = $("h2").length;
   const hasLang = $("html").attr("lang");
@@ -339,7 +341,6 @@ async function runScanner(
     fix: "Use one H1, multiple H2s, and set the html lang attribute.",
   });
 
-  // C12: Image Alt Text
   const imgs = $("img");
   let imgsWithAlt = 0;
   imgs.each((_, el) => {
@@ -368,20 +369,19 @@ async function runScanner(
     fix: "Add descriptive alt text.",
   });
 
-  // C13: Page Speed (Using API)
   let c13Status: CheckStatus = "N/A";
   let c13Found = "Speed test unavailable right now.";
   const psiData = await fetchPSI(fullUrl, process.env.PAGESPEED_API_KEY || "");
   if (psiData) {
     if (psiData.lcp > 4000 || psiData.cls > 0.25) {
       c13Status = "FAIL";
-      c13Found = `Poor speed: LCP ${Math.round(psiData.lcp)}ms, CLS ${psiData.cls}.`;
+      c13Found = `Poor speed: LCP ${Math.round(psiData.lcp)}ms, CLS ${psiData.cls.toFixed(2)}.`;
     } else if (psiData.lcp > 2500 || psiData.cls > 0.1) {
       c13Status = "WARN";
-      c13Found = `Needs improvement: LCP ${Math.round(psiData.lcp)}ms.`;
+      c13Found = `Needs improvement: LCP ${Math.round(psiData.lcp)}ms, CLS ${psiData.cls.toFixed(2)}.`;
     } else {
       c13Status = "PASS";
-      c13Found = `Good speed: LCP ${Math.round(psiData.lcp)}ms.`;
+      c13Found = `Good speed: LCP ${Math.round(psiData.lcp)}ms, CLS ${psiData.cls.toFixed(2)}.`;
     }
   }
   checks.push({
@@ -395,7 +395,6 @@ async function runScanner(
     fix: "Optimize images, enable caching, and defer scripts.",
   });
 
-  // C14: Broken Links (Skipping for performance in this version, marking as PASS to avoid slowdowns)
   checks.push({
     id: "C14",
     name: "Broken internal links",
@@ -411,7 +410,6 @@ async function runScanner(
   // CATEGORY C: TRUST AND IDENTITY
   // ==========================================
 
-  // C15: Structured Data
   const jsonLd = $('script[type="application/ld+json"]');
   let hasOrg = false;
   jsonLd.each((_, el) => {
@@ -435,7 +433,6 @@ async function runScanner(
     fix: "Add JSON-LD schema for your business.",
   });
 
-  // C16: Trust Signals
   let trustScore = 0;
   if (/about/i.test(rawText)) trustScore++;
   if (/contact|phone|email/i.test(rawText)) trustScore++;
@@ -453,7 +450,6 @@ async function runScanner(
     fix: "Add an About page, contact info, and testimonials.",
   });
 
-  // C17: NAP
   let c17Status: CheckStatus = "N/A";
   if (isLocal) {
     const hasPhone = /(?:\+91|\(?\d{3}\)?)[\s.-]?\d{3}[\s.-]?\d{4}/.test(
@@ -477,7 +473,6 @@ async function runScanner(
     fix: "Add Name, Address, Phone to footer.",
   });
 
-  // C18: Business Profile Links
   const hasSocial =
     /linkedin\.com|facebook\.com|instagram\.com|twitter\.com|maps\.google/i.test(
       rawText,
@@ -493,7 +488,6 @@ async function runScanner(
     fix: "Add links to your social media and Google Business Profile.",
   });
 
-  // C19: Answer-ready content
   let c19Status: CheckStatus = "PASS";
   if (rawWords < 300) {
     c19Status = "FAIL";
@@ -550,7 +544,7 @@ async function runScanner(
     bMax = 0;
   let cPoints = 0,
     cMax = 0;
-  let totalQuote = 499; // Base fee
+  let totalQuote = 499;
   let hasBlockingIssue = false;
 
   checks.forEach((c) => {
@@ -570,12 +564,10 @@ async function runScanner(
       }
     }
 
-    // Pricing logic
     if ((c.status === "FAIL" || c.status === "WARN") && FIX_PRICES[c.id]) {
       totalQuote += FIX_PRICES[c.id];
     }
 
-    // Blocking Cap Logic
     if (
       (c.id === "C01" || c.id === "C02" || c.id === "C04") &&
       c.status === "FAIL"
@@ -641,7 +633,7 @@ async function runScanner(
       setup_fee: 499,
       subtotal: totalQuote,
       quoted_items: [],
-      total_fixed: Math.min(totalQuote, 9999), // Max cap 9999
+      total_fixed: Math.min(totalQuote, 9999),
     },
   };
 }
