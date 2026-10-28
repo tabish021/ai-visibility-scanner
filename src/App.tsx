@@ -332,7 +332,7 @@ export default function App() {
                 </svg>
               </div>
               <span className="font-extrabold text-white text-base">
-                AI Visibility Scanner v2
+                AI Visibility Scanner
               </span>
             </div>
             {scanResult && (
