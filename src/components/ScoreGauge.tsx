@@ -151,9 +151,7 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({ result }) => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-xl mt-4">
         <div className="p-3 bg-gray-900/60 rounded-xl border border-gray-800">
           <div className="flex justify-between items-center text-xs text-gray-400 mb-1.5">
-            <span className="font-semibold text-gray-300">
-              Access & Indexability
-            </span>
+            <span className="font-semibold text-gray-300">SEO (Access)</span>
             <span className="font-mono text-emerald-400 font-bold">
               {categories.A.score}%
             </span>
@@ -167,7 +165,7 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({ result }) => {
         </div>
         <div className="p-3 bg-gray-900/60 rounded-xl border border-gray-800">
           <div className="flex justify-between items-center text-xs text-gray-400 mb-1.5">
-            <span className="font-semibold text-gray-300">Page Quality</span>
+            <span className="font-semibold text-gray-300">GEO (Quality)</span>
             <span className="font-mono text-cyan-400 font-bold">
               {categories.B.score}%
             </span>
@@ -181,9 +179,7 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({ result }) => {
         </div>
         <div className="p-3 bg-gray-900/60 rounded-xl border border-gray-800">
           <div className="flex justify-between items-center text-xs text-gray-400 mb-1.5">
-            <span className="font-semibold text-gray-300">
-              Trust & Identity
-            </span>
+            <span className="font-semibold text-gray-300">AEO (Trust)</span>
             <span className="font-mono text-purple-400 font-bold">
               {categories.C.score}%
             </span>

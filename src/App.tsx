@@ -6,12 +6,14 @@ import {
   Bot,
   AlertCircle,
   RefreshCw,
+  ExternalLink,
   Download,
   X,
   MessageSquare,
   Share2,
   TrendingUp,
   History,
+  CheckCircle2,
   CheckSquare,
   Phone,
   FileText,
@@ -69,17 +71,6 @@ const RECENT_SCAN_URLS = [
   "stridestudio.in",
 ];
 
-const getCategoryScore = (checks: any[], fixedIds: string[]) => {
-  if (!checks || checks.length === 0) return 0;
-  let pass = 0,
-    warn = 0;
-  checks.forEach((c) => {
-    if (c.status === "pass" || fixedIds.includes(c.id)) pass++;
-    else if (c.status === "warn") warn++;
-  });
-  return Math.round((pass * 100 + warn * 50) / checks.length);
-};
-
 export default function App() {
   const [urlInput, setUrlInput] = useState("");
   const [isLocal, setIsLocal] = useState(false);
@@ -87,10 +78,14 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const [tickerUrl, setTickerUrl] = useState(RECENT_SCAN_URLS[0]);
   const [history, setHistory] = useState<ScanResult[]>([]);
   const [fixedChecks, setFixedChecks] = useState<string[]>([]);
+  const [selectedFilter, setSelectedFilter] = useState<
+    "ALL" | "SEO" | "GEO" | "AEO"
+  >("ALL");
 
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [leadEmail, setLeadEmail] = useState("");
@@ -137,29 +132,20 @@ export default function App() {
     return scanResult.checks.filter(
       (c) =>
         (c.status === "fail" || c.status === "warn") &&
-        c.price &&
-        c.id !== "C16" &&
-        c.id !== "C19",
+        (c.category === "A" || c.category === "B"),
     );
   }, [scanResult]);
 
   const contentErrors = useMemo(() => {
     if (!scanResult) return [];
     return scanResult.checks.filter(
-      (c) =>
-        (c.status === "fail" || c.status === "warn") &&
-        (c.id === "C16" || c.id === "C19"),
+      (c) => (c.status === "fail" || c.status === "warn") && c.category === "C",
     );
   }, [scanResult]);
 
   const dynamicPrice = useMemo(() => {
-    if (!scanResult) return 0;
-    let total = scanResult.quote.setup_fee;
-    techErrors.forEach((err) => {
-      if (err.price) total += err.price;
-    });
-    return Math.min(9999, total);
-  }, [scanResult, techErrors]);
+    return scanResult ? scanResult.quote.total_fixed : 0;
+  }, [scanResult]);
 
   const handleScan = async (targetUrlToScan?: string) => {
     const rawTarget = targetUrlToScan || urlInput;
@@ -260,9 +246,17 @@ export default function App() {
     }
   };
 
-  const catAChecks = scanResult?.checks.filter((c) => c.category === "A") || [];
-  const catBChecks = scanResult?.checks.filter((c) => c.category === "B") || [];
-  const catCChecks = scanResult?.checks.filter((c) => c.category === "C") || [];
+  const seoChecks = scanResult?.checks.filter((c) => c.category === "A") || [];
+  const geoChecks = scanResult?.checks.filter((c) => c.category === "B") || [];
+  const aeoChecks = scanResult?.checks.filter((c) => c.category === "C") || [];
+
+  const isPerfectScore = useMemo(() => {
+    if (!scanResult) return false;
+    const failed = scanResult.checks.filter(
+      (c) => c.status === "fail" || c.status === "warn",
+    );
+    return scanResult.overall.score >= 90 && failed.length === 0;
+  }, [scanResult]);
 
   return (
     <div className="min-h-screen text-gray-200 flex flex-col font-sans relative bg-gray-950">
@@ -483,26 +477,6 @@ export default function App() {
                 />
               </div>
 
-              {/* BLOCKING ISSUES FIRST */}
-              {scanResult.overall.capped && (
-                <div className="w-full max-w-4xl mb-6 p-5 rounded-2xl bg-rose-950/40 border border-rose-500/50">
-                  <h4 className="text-base font-bold text-rose-400 flex items-center gap-2 mb-2">
-                    <AlertCircle className="w-5 h-5" /> Fix these first
-                  </h4>
-                  <p className="text-xs text-gray-300 mb-3">
-                    Crawlers cannot reach or read your page. Nothing else
-                    matters until this is solved.
-                  </p>
-                  <div className="space-y-3">
-                    {catAChecks
-                      .filter((c) => c.status === "fail")
-                      .map((check) => (
-                        <CheckCard key={check.id} check={check} />
-                      ))}
-                  </div>
-                </div>
-              )}
-
               <div className="w-full max-w-4xl mb-4 flex items-center justify-between bg-blue-950/30 border border-blue-500/20 p-3 rounded-xl">
                 <p className="text-xs text-blue-300 flex items-center gap-2">
                   <CheckSquare className="w-4 h-4" /> Tip: Check off items as
@@ -510,26 +484,61 @@ export default function App() {
                 </p>
               </div>
 
+              <div className="w-full max-w-4xl mb-6 flex items-center justify-between flex-wrap gap-3 border-b border-gray-800 pb-3">
+                <div className="flex items-center gap-1.5 bg-gray-900 p-1 rounded-xl border border-gray-800">
+                  {(["ALL", "SEO", "GEO", "AEO"] as const).map((filter) => (
+                    <button
+                      key={filter}
+                      onClick={() => setSelectedFilter(filter)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                        selectedFilter === filter
+                          ? "bg-emerald-500 text-gray-950 shadow-sm"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      {filter === "ALL" ? "All Checks (19)" : filter}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="w-full max-w-4xl space-y-8">
-                {[
-                  {
-                    title: "Category A: Access & Indexability",
-                    data: catAChecks,
-                  },
-                  { title: "Category B: Page Quality", data: catBChecks },
-                  { title: "Category C: Trust & Identity", data: catCChecks },
-                ].map(({ title, data }) => (
-                  <div key={title}>
+                {(selectedFilter === "ALL" || selectedFilter === "SEO") && (
+                  <div>
                     <h3 className="text-lg font-bold text-white mb-3">
-                      {title}
+                      SEO Diagnostics (Access & Indexability)
                     </h3>
                     <div className="space-y-3">
-                      {data.map((check) => (
+                      {seoChecks.map((check) => (
                         <CheckCard key={check.id} check={check} />
                       ))}
                     </div>
                   </div>
-                ))}
+                )}
+                {(selectedFilter === "ALL" || selectedFilter === "GEO") && (
+                  <div>
+                    <h3 className="text-lg font-bold text-white mb-3">
+                      GEO Diagnostics (Page Quality)
+                    </h3>
+                    <div className="space-y-3">
+                      {geoChecks.map((check) => (
+                        <CheckCard key={check.id} check={check} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {(selectedFilter === "ALL" || selectedFilter === "AEO") && (
+                  <div>
+                    <h3 className="text-lg font-bold text-white mb-3">
+                      AEO Diagnostics (Trust & Identity)
+                    </h3>
+                    <div className="space-y-3">
+                      {aeoChecks.map((check) => (
+                        <CheckCard key={check.id} check={check} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* INFO ROWS */}
@@ -611,7 +620,7 @@ export default function App() {
                   </div>
                 )}
 
-                {techErrors.length === 0 && contentErrors.length === 0 && (
+                {isPerfectScore && (
                   <div className="p-8 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex flex-col items-center text-center gap-4">
                     <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/40">
                       <Award className="w-8 h-8 text-emerald-400" />
@@ -704,7 +713,7 @@ export default function App() {
         </footer>
       </div>
 
-      {/* LEAD MODAL */}
+      {/* MODALS... (Keep the Lead, Compare, AI Guide, and Contact modals from the previous code) */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 w-full max-w-sm relative">
@@ -737,7 +746,6 @@ export default function App() {
         </div>
       )}
 
-      {/* COMPARE MODAL */}
       {isCompareModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-gray-950 border border-purple-500/30 rounded-2xl p-6 w-full max-w-lg relative">
@@ -798,7 +806,6 @@ export default function App() {
         </div>
       )}
 
-      {/* AI FIX GUIDE MODAL */}
       {isAiModalOpen && scanResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 w-full max-w-2xl relative max-h-[80vh] overflow-y-auto">
@@ -856,7 +863,6 @@ export default function App() {
         </div>
       )}
 
-      {/* CONTACT MODAL */}
       {contactMode && scanResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 w-full max-w-sm relative text-center">
