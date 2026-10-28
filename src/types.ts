@@ -1,51 +1,48 @@
-export type CheckCategory = "SEO" | "GEO" | "AEO";
-export type CheckStatus = "pass" | "warn" | "fail";
+export type CheckCategory = "A" | "B" | "C";
+export type CheckStatus = "pass" | "warn" | "fail" | "info" | "N/A";
 
 export interface CheckItem {
   id: string;
   name: string;
   category: CheckCategory;
   status: CheckStatus;
-  detail: string;
-  fixTip?: string;
-  fixCode?: string;
+  weight: number;
+  found: string;
+  why: string;
+  fix: string;
+  price?: number;
 }
 
 export interface CategorySummary {
-  checks: CheckItem[];
+  name: string;
   score: number;
-  maxScore: number;
+}
+
+export interface QuoteData {
+  setup_fee: number;
+  subtotal: number;
+  quoted_items: string[];
+  total_fixed: number;
 }
 
 export interface ScanResult {
-  url: string;
-  domain: string;
-  scannedAt: string;
-  loadTimeMs: number;
-  score: number;
-  grade: string;
-  gradeDescription: string;
-  summary: {
-    total: number;
-    pass: number;
-    warn: number;
-    fail: number;
+  scanner_version: string;
+  scanned_at: string;
+  input_url: string;
+  final_url: string;
+  is_local_business: boolean;
+  overall: {
+    score: number;
+    label: string;
+    capped: boolean;
+    disclaimer: string;
   };
   categories: {
-    seo: CategorySummary;
-    geo: CategorySummary;
-    aeo: CategorySummary;
+    A: CategorySummary;
+    B: CategorySummary;
+    C: CategorySummary;
   };
   checks: CheckItem[];
-  metadata: {
-    title: string;
-    description: string;
-    wordCount: number;
-    headingsCount: { h1: number; h2: number };
-    imagesCount: { total: number; withAlt: number };
-    linksCount: { total: number; tested: number; broken: number };
-    hasSchema: boolean;
-    hasRobots: boolean;
-    hasLlmsTxt: boolean;
-  };
+  info: { id: string; name: string; present: boolean; note: string }[];
+  quote: QuoteData;
 }

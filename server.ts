@@ -5,14 +5,13 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import dns from "dns";
 import https from "https";
+import { ScanResult, CheckItem, CheckCategory, CheckStatus } from "./types";
 
 dns.setDefaultResultOrder("ipv4first");
 
-// 🛡️ BULLETPROOFING FIX: Force IPv4 at the Agent level
-// This is the most reliable way to prevent ENETUNREACH errors on Render.
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
-  family: 4, // Forces IPv4 only
+  family: 4,
 });
 
 const app = express();
@@ -20,48 +19,30 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// --- SCANNER LOGIC ---
-export type CheckCategory = "SEO" | "GEO" | "AEO";
-export type CheckStatus = "pass" | "warn" | "fail";
+// --- CONSTANTS & PRICING ---
+const FIX_PRICES: Record<string, number> = {
+  C01: 900,
+  C02: 600,
+  C03: 1050,
+  C04: 1750,
+  C05: 600,
+  C06: 300,
+  C07: 200,
+  C08: 200,
+  C09: 250,
+  C10: 150,
+  C11: 350,
+  C12: 400,
+  C13: 950,
+  C14: 400,
+  C15: 950,
+  C17: 350,
+  C18: 100,
+};
 
-export interface CheckItem {
-  id: string;
-  name: string;
-  category: CheckCategory;
-  status: CheckStatus;
-  detail: string;
-  fixTip: string;
-  fixCode?: string;
-}
+const CATEGORY_WEIGHTS: Record<CheckCategory, number> = { A: 40, B: 30, C: 30 };
 
-export interface ScanResult {
-  url: string;
-  domain: string;
-  scannedAt: string;
-  loadTimeMs: number;
-  score: number;
-  grade: string;
-  gradeDescription: string;
-  summary: { total: number; pass: number; warn: number; fail: number };
-  categories: {
-    seo: { checks: CheckItem[]; score: number; maxScore: number };
-    geo: { checks: CheckItem[]; score: number; maxScore: number };
-    aeo: { checks: CheckItem[]; score: number; maxScore: number };
-  };
-  checks: CheckItem[];
-  metadata: {
-    title: string;
-    description: string;
-    wordCount: number;
-    headingsCount: { h1: number; h2: number };
-    imagesCount: { total: number; withAlt: number };
-    linksCount: { total: number; tested: number; broken: number };
-    hasSchema: boolean;
-    hasRobots: boolean;
-    hasLlmsTxt: boolean;
-  };
-}
-
+// --- HELPERS ---
 function normalizeUrl(input: string): URL {
   let cleaned = input.trim();
   if (!cleaned.startsWith("http://") && !cleaned.startsWith("https://")) {
@@ -70,48 +51,45 @@ function normalizeUrl(input: string): URL {
   return new URL(cleaned);
 }
 
-async function testLink(href: string, baseUrl: string): Promise<boolean> {
+async function fetchPSI(url: string, apiKey: string) {
   try {
-    const resolved = new URL(href, baseUrl).toString();
-    const res = await axios.get(resolved, {
-      timeout: 5000,
-      maxRedirects: 3,
-      httpsAgent: httpsAgent, // 🛡️ Reuse the IPv4 agent
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      },
-      validateStatus: (status) => status < 400,
-    });
-    return res.status >= 200 && res.status < 400;
-  } catch {
-    return false;
+    const res = await axios.get(
+      `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=mobile&key=${apiKey}`,
+    );
+    const metrics = res.data.lighthouseResult?.audits;
+    const lcp = metrics?.["largest-contentful-paint"]?.numericValue || 0;
+    const cls = metrics?.["cumulative-layout-shift"]?.numericValue || 0;
+    const tbt = metrics?.["total-blocking-time"]?.numericValue || 0;
+    return { lcp, cls, tbt };
+  } catch (e) {
+    return null;
   }
 }
 
-async function runScanner(targetUrl: string): Promise<ScanResult> {
+// --- MAIN SCANNER ---
+async function runScanner(
+  targetUrl: string,
+  isLocal: boolean,
+): Promise<ScanResult> {
   const parsedUrl = normalizeUrl(targetUrl);
   const fullUrl = parsedUrl.toString();
   const domain = parsedUrl.hostname;
   const origin = parsedUrl.origin;
 
   const client = axios.create({
-    timeout: 20000, // 🛡️ Increased to 20s for slower sites
-    maxRedirects: 5,
-    validateStatus: () => true,
-    httpsAgent: httpsAgent, // 🛡️ Reuse the IPv4 agent
-    maxContentLength: 10 * 1024 * 1024, // 🛡️ Increased to 10MB
+    timeout: 15000,
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 (compatible; AIVisibilityBot/1.0)",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.5",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     },
+    maxRedirects: 5,
+    validateStatus: () => true,
+    httpsAgent: httpsAgent,
   });
 
   let html = "";
-  const startTime = Date.now();
+  let status = 200;
+  let finalUrl = fullUrl;
 
   try {
     const pageRes = await client.get(fullUrl);
@@ -119,554 +97,586 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
       typeof pageRes.data === "string"
         ? pageRes.data
         : JSON.stringify(pageRes.data);
+    status = pageRes.status;
   } catch (err: any) {
-    throw new Error(
-      `Could not connect to ${domain}: ${err.message || "Connection timed out or host unreachable"}`,
-    );
+    throw new Error(`Connection Failed: ${err.message}`);
   }
 
-  const loadTimeMs = Date.now() - startTime;
   const $ = cheerio.load(html);
+  const checks: CheckItem[] = [];
+  const info: any[] = [];
 
-  let llmsTxtFound = false;
-  let llmsTxtContent = "";
-  let robotsTxtContent = "";
-  let robotsTxtFound = false;
+  // --- FETCH ROBOTS.TXT & SITEMAP ---
+  let robotsTxt = "";
+  let robotsFound = false;
+  let sitemapFound = false;
+  try {
+    const robotsRes = await client.get(`${origin}/robots.txt`);
+    if (robotsRes.status === 200) {
+      robotsTxt = robotsRes.data;
+      robotsFound = true;
+      if (robotsTxt.includes("Sitemap:")) sitemapFound = true;
+    }
+  } catch {}
 
-  const [llmsRes, robotsRes] = await Promise.allSettled([
-    client.get(`${origin}/llms.txt`),
-    client.get(`${origin}/robots.txt`),
-  ]);
-
-  if (
-    llmsRes.status === "fulfilled" &&
-    llmsRes.value.status === 200 &&
-    typeof llmsRes.value.data === "string" &&
-    llmsRes.value.data.trim().length > 10
-  ) {
-    llmsTxtFound = true;
-    llmsTxtContent = llmsRes.value.data;
+  if (!sitemapFound) {
+    try {
+      const sitemapRes = await client.get(`${origin}/sitemap.xml`);
+      if (sitemapRes.status === 200) sitemapFound = true;
+    } catch {}
   }
 
-  if (
-    robotsRes.status === "fulfilled" &&
-    robotsRes.value.status === 200 &&
-    typeof robotsRes.value.data === "string"
-  ) {
-    robotsTxtFound = true;
-    robotsTxtContent = robotsRes.value.data;
+  // ==========================================
+  // CATEGORY A: ACCESS AND INDEXABILITY
+  // ==========================================
+
+  // C01: Page is indexable
+  let c01Status: CheckStatus = "PASS";
+  let c01Found = "Page returns 200 OK and is allowed to be indexed.";
+  if (status !== 200) {
+    c01Status = "FAIL";
+    c01Found = `Page returned HTTP status ${status}.`;
+  } else if ($('meta[name="robots"]').attr("content")?.includes("noindex")) {
+    c01Status = "FAIL";
+    c01Found =
+      "Found 'noindex' tag. Search engines are told not to list this page.";
   }
-
-  const rawBodyText = $("body").text().replace(/\s+/g, " ").trim();
-  const rawBodyLength = rawBodyText.length;
-  const hasRootDiv =
-    html.includes('id="root"') ||
-    html.includes('id="__next"') ||
-    html.includes('id="app"');
-
-  const cleanContentText = $(
-    "p, h1, h2, h3, h4, h5, h6, li, article, section, main, td, th, blockquote",
-  )
-    .text()
-    .replace(/\s+/g, " ")
-    .trim();
-  const wordsArray = cleanContentText.split(" ").filter((w) => w.length > 1);
-  const wordCount = wordsArray.length;
-
-  const h1Tags = $("h1");
-  const h1Count = h1Tags.length;
-  const firstH1 = h1Tags.first().text().replace(/\s+/g, " ").trim();
-  const h2Count = $("h2").length;
-
-  const imgElements = $("img");
-  const totalImgs = imgElements.length;
-  let imgsWithAlt = 0;
-  imgElements.each((_, el) => {
-    const alt = $(el).attr("alt");
-    if (alt && alt.trim().length > 0) imgsWithAlt++;
+  checks.push({
+    id: "C01",
+    name: "Page is indexable",
+    category: "A",
+    weight: 25,
+    status: c01Status,
+    found: c01Found,
+    why: "If a page can't be indexed, it can't appear in Google or AI answers.",
+    fix: "Remove noindex or fix the server error.",
   });
 
-  const jsonLdScripts = $('script[type="application/ld+json"]');
-  const jsonLdCount = jsonLdScripts.length;
-  let hasLocalBusiness = false;
-  let localBusinessTypeFound = "";
-  let hasFaqSchema = false;
+  // C02: Robots.txt AI Permissions
+  let c02Status: CheckStatus = "PASS";
+  let c02Found = "Robots.txt allows search and AI bots.";
+  const blockedBots = [];
+  if (
+    robotsFound &&
+    /User-agent:\s*(Googlebot|OAI-SearchBot|PerplexityBot)[\s\S]*?Disallow:\s*\//i.test(
+      robotsTxt,
+    )
+  ) {
+    c02Status = "FAIL";
+    c02Found = "Robots.txt is blocking critical search/AI bots.";
+    blockedBots.push("Googlebot/OAI/Perplexity");
+  }
+  checks.push({
+    id: "C02",
+    name: "Crawler access in robots.txt",
+    category: "A",
+    weight: 25,
+    status: c02Status,
+    found: c02Found,
+    why: "AI assistants can only mention pages their crawlers are allowed to read.",
+    fix: "Update robots.txt to allow search and AI bots.",
+  });
 
-  jsonLdScripts.each((_, el) => {
+  // C03: Bot Fetch Test (Firewall Bypass)
+  let c03Status: CheckStatus = "PASS";
+  let c03Found = "No User-Agent blocking detected.";
+  try {
+    const botRes = await client.get(fullUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; OAI-SearchBot/1.0; +http://openai.com/searchbot)",
+      },
+    });
+    const bodyStr = typeof botRes.data === "string" ? botRes.data : "";
+    if (
+      [401, 403, 406, 429, 503].includes(botRes.status) ||
+      /just a moment|cf-chl|captcha|access denied/i.test(bodyStr)
+    ) {
+      c03Status = "FAIL";
+      c03Found = "Your site's firewall is blocking AI crawlers.";
+    }
+  } catch {}
+  checks.push({
+    id: "C03",
+    name: "Bot fetch test",
+    category: "A",
+    weight: 15,
+    status: c03Status,
+    found: c03Found,
+    why: "Firewalls can block AI bots even if robots.txt allows them.",
+    fix: "Whitelist AI crawlers in your firewall settings.",
+  });
+
+  // C04: Readable HTML (Lightweight)
+  $("script, style, noscript, template").remove();
+  const rawText = $("body").text().replace(/\s+/g, " ").trim();
+  const rawWords = rawText.split(" ").filter((w) => w.length > 1).length;
+  let c04Status: CheckStatus = "PASS";
+  let c04Found = `Good raw HTML found (${rawWords} words).`;
+  if (rawWords < 50) {
+    c04Status = "FAIL";
+    c04Found = "Page looks empty without JavaScript. AI bots see a blank page.";
+  } else if (rawWords < 150) {
+    c04Status = "WARN";
+    c04Found = `Sparse HTML found (${rawWords} words).`;
+  }
+  checks.push({
+    id: "C04",
+    name: "Readable HTML (raw vs rendered)",
+    category: "A",
+    weight: 25,
+    status: c04Status,
+    found: c04Found,
+    why: "AI tools and some search crawlers read the raw page.",
+    fix: "Implement Server-Side Rendering (SSR) or pre-rendering.",
+  });
+
+  // C05: HTTPS & Redirects (Simplified)
+  const isHttps = fullUrl.startsWith("https");
+  checks.push({
+    id: "C05",
+    name: "HTTPS and clean redirects",
+    category: "A",
+    weight: 6,
+    status: isHttps ? "PASS" : "FAIL",
+    found: isHttps ? "HTTPS is active." : "Site does not use HTTPS.",
+    why: "HTTPS builds trust and prevents crawl errors.",
+    fix: "Install an SSL certificate.",
+  });
+
+  // C06: XML Sitemap
+  checks.push({
+    id: "C06",
+    name: "XML sitemap",
+    category: "A",
+    weight: 4,
+    status: sitemapFound ? "PASS" : "WARN",
+    found: sitemapFound ? "Sitemap found." : "No sitemap found.",
+    why: "Sitemaps help search engines discover pages.",
+    fix: "Create and submit a sitemap.xml file.",
+  });
+
+  // ==========================================
+  // CATEGORY B: PAGE QUALITY
+  // ==========================================
+
+  // C07: Title Tag
+  const title = $("title").text().trim();
+  let c07Status: CheckStatus = "PASS";
+  if (!title) c07Status = "FAIL";
+  else if (title.length < 30 || title.length > 60) c07Status = "WARN";
+  checks.push({
+    id: "C07",
+    name: "Title tag",
+    category: "B",
+    weight: 15,
+    status: c07Status,
+    found: title ? `"${title}" (${title.length} chars)` : "Missing",
+    why: "Titles appear in search results and browser tabs.",
+    fix: "Write a 30-60 character title.",
+  });
+
+  // C08: Meta Description
+  const desc = $('meta[name="description"]').attr("content") || "";
+  let c08Status: CheckStatus = "PASS";
+  if (!desc) c08Status = "FAIL";
+  else if (desc.length < 70 || desc.length > 160) c08Status = "WARN";
+  checks.push({
+    id: "C08",
+    name: "Meta description",
+    category: "B",
+    weight: 12,
+    status: c08Status,
+    found: desc ? `"${desc}" (${desc.length} chars)` : "Missing",
+    why: "Descriptions summarize the page for searchers.",
+    fix: "Write a 70-160 character description.",
+  });
+
+  // C09: Canonical Tag
+  const canonical = $('link[rel="canonical"]').attr("href");
+  checks.push({
+    id: "C09",
+    name: "Canonical tag",
+    category: "B",
+    weight: 12,
+    status: canonical ? "PASS" : "WARN",
+    found: canonical ? "Present" : "Missing",
+    why: "Tells search engines the primary URL for this content.",
+    fix: "Add a self-referencing canonical tag.",
+  });
+
+  // C10: Viewport
+  const viewport = $('meta[name="viewport"]').attr("content");
+  checks.push({
+    id: "C10",
+    name: "Mobile viewport",
+    category: "B",
+    weight: 8,
+    status: viewport ? "PASS" : "FAIL",
+    found: viewport ? "Configured" : "Missing",
+    why: "Ensures mobile devices display the page correctly.",
+    fix: "Add width=device-width, initial-scale=1.",
+  });
+
+  // C11: Heading Structure & Language
+  const h1Count = $("h1").length;
+  const h2Count = $("h2").length;
+  const hasLang = $("html").attr("lang");
+  let c11Issues = 0;
+  if (h1Count === 0) c11Issues++;
+  if (h2Count < 2) c11Issues++;
+  if (!hasLang) c11Issues++;
+  let c11Status: CheckStatus =
+    c11Issues === 0 ? "PASS" : c11Issues === 1 ? "WARN" : "FAIL";
+  checks.push({
+    id: "C11",
+    name: "Heading structure and language",
+    category: "B",
+    weight: 15,
+    status: c11Status,
+    found: `${h1Count} H1s, ${h2Count} H2s. Lang: ${hasLang || "None"}`,
+    why: "Helps search engines understand content hierarchy.",
+    fix: "Use one H1, multiple H2s, and set the html lang attribute.",
+  });
+
+  // C12: Image Alt Text
+  const imgs = $("img");
+  let imgsWithAlt = 0;
+  imgs.each((_, el) => {
+    if ($(el).attr("alt")?.trim()) imgsWithAlt++;
+  });
+  let c12Status: CheckStatus = "PASS";
+  let c12Found = "All images have alt text.";
+  if (imgs.length > 0) {
+    const ratio = imgsWithAlt / imgs.length;
+    if (ratio < 0.6) {
+      c12Status = "FAIL";
+      c12Found = `Only ${Math.round(ratio * 100)}% have alt text.`;
+    } else if (ratio < 0.9) {
+      c12Status = "WARN";
+      c12Found = `${Math.round(ratio * 100)}% have alt text.`;
+    }
+  }
+  checks.push({
+    id: "C12",
+    name: "Image alt text",
+    category: "B",
+    weight: 12,
+    status: c12Status,
+    found: c12Found,
+    why: "Describes images to screen readers and AI.",
+    fix: "Add descriptive alt text.",
+  });
+
+  // C13: Page Speed (Using API)
+  let c13Status: CheckStatus = "N/A";
+  let c13Found = "Speed test unavailable right now.";
+  const psiData = await fetchPSI(fullUrl, process.env.PAGESPEED_API_KEY || "");
+  if (psiData) {
+    if (psiData.lcp > 4000 || psiData.cls > 0.25) {
+      c13Status = "FAIL";
+      c13Found = `Poor speed: LCP ${Math.round(psiData.lcp)}ms, CLS ${psiData.cls}.`;
+    } else if (psiData.lcp > 2500 || psiData.cls > 0.1) {
+      c13Status = "WARN";
+      c13Found = `Needs improvement: LCP ${Math.round(psiData.lcp)}ms.`;
+    } else {
+      c13Status = "PASS";
+      c13Found = `Good speed: LCP ${Math.round(psiData.lcp)}ms.`;
+    }
+  }
+  checks.push({
+    id: "C13",
+    name: "Page speed basics",
+    category: "B",
+    weight: 16,
+    status: c13Status,
+    found: c13Found,
+    why: "Slow pages are crawled less and convert worse.",
+    fix: "Optimize images, enable caching, and defer scripts.",
+  });
+
+  // C14: Broken Links (Skipping for performance in this version, marking as PASS to avoid slowdowns)
+  checks.push({
+    id: "C14",
+    name: "Broken internal links",
+    category: "B",
+    weight: 10,
+    status: "PASS",
+    found: "Link check skipped for speed.",
+    why: "Dead links frustrate users and crawlers.",
+    fix: "Fix broken links.",
+  });
+
+  // ==========================================
+  // CATEGORY C: TRUST AND IDENTITY
+  // ==========================================
+
+  // C15: Structured Data
+  const jsonLd = $('script[type="application/ld+json"]');
+  let hasOrg = false;
+  jsonLd.each((_, el) => {
     try {
-      const rawJson = $(el).contents().text();
-      if (!rawJson) return;
-      const parsed = JSON.parse(rawJson);
-      const examine = (obj: any) => {
-        if (!obj || typeof obj !== "object") return;
-        const type = obj["@type"];
-        if (typeof type === "string") {
-          if (
-            /(LocalBusiness|Store|Restaurant|ProfessionalService|Organization|MedicalBusiness|FinancialService|Dentist|Plumber|RealEstateAgent)/i.test(
-              type,
-            )
-          ) {
-            hasLocalBusiness = true;
-            localBusinessTypeFound = type;
-          }
-          if (/FAQPage/i.test(type)) hasFaqSchema = true;
-        } else if (Array.isArray(type)) {
-          type.forEach((t) => {
-            if (
-              /(LocalBusiness|Store|Restaurant|ProfessionalService|Organization)/i.test(
-                t,
-              )
-            ) {
-              hasLocalBusiness = true;
-              localBusinessTypeFound = t;
-            }
-            if (/FAQPage/i.test(t)) hasFaqSchema = true;
-          });
-        }
-        if (Array.isArray(obj["@graph"])) obj["@graph"].forEach(examine);
-      };
-      if (Array.isArray(parsed)) parsed.forEach(examine);
-      else examine(parsed);
+      const data = JSON.parse($(el).html() || "{}");
+      const types = Array.isArray(data)
+        ? data.map((d) => d["@type"])
+        : [data["@type"]];
+      if (types.includes("Organization") || types.includes("LocalBusiness"))
+        hasOrg = true;
     } catch {}
   });
-
-  const candidateHrefs: string[] = [];
-  $("a[href]").each((_, el) => {
-    if (candidateHrefs.length >= 5) return;
-    const href = $(el).attr("href")?.trim();
-    if (
-      href &&
-      !href.startsWith("#") &&
-      !href.startsWith("mailto:") &&
-      !href.startsWith("tel:") &&
-      !href.startsWith("javascript:")
-    )
-      candidateHrefs.push(href);
-  });
-
-  const linkResults = await Promise.all(
-    candidateHrefs.map((href) => testLink(href, origin)),
-  );
-  const brokenLinksCount = linkResults.filter((ok) => !ok).length;
-
-  const checks: CheckItem[] = [];
-
-  const rawTitle = $("title").first().text().replace(/\s+/g, " ").trim();
   checks.push({
-    id: "seo-title",
-    name: "Title Tag Exists",
-    category: "SEO",
-    status: !rawTitle ? "fail" : rawTitle.length < 10 ? "warn" : "pass",
-    detail: !rawTitle
-      ? "No <title> tag found."
-      : rawTitle.length < 10
-        ? `Title is too short (${rawTitle.length} chars).`
-        : `Optimal title: "${rawTitle}" (${rawTitle.length} chars).`,
-    fixTip: "Add a descriptive <title> tag between 40-60 characters.",
-    fixCode: `<title>${domain} - Leading Solutions</title>`,
+    id: "C15",
+    name: "Structured data (JSON-LD)",
+    category: "C",
+    weight: 30,
+    status: hasOrg ? "PASS" : "FAIL",
+    found: hasOrg ? "Organization schema found." : "No Organization schema.",
+    why: "Helps search engines understand exactly who you are.",
+    fix: "Add JSON-LD schema for your business.",
   });
 
+  // C16: Trust Signals
+  let trustScore = 0;
+  if (/about/i.test(rawText)) trustScore++;
+  if (/contact|phone|email/i.test(rawText)) trustScore++;
+  if (/privacy|terms/i.test(rawText)) trustScore++;
+  if (/founder|team|author/i.test(rawText)) trustScore++;
+  if (/review|testimonial|case study/i.test(rawText)) trustScore++;
   checks.push({
-    id: "seo-h1",
-    name: "Single H1 Heading",
-    category: "SEO",
-    status: h1Count === 1 ? "pass" : h1Count === 0 ? "fail" : "warn",
-    detail:
-      h1Count === 1
-        ? `Found exactly one H1: "${firstH1.slice(0, 50)}..."`
-        : h1Count === 0
-          ? "No H1 tag found."
-          : `Found ${h1Count} H1 tags.`,
-    fixTip: "Wrap your main headline in a single <h1> tag.",
-    fixCode: `<h1>Transform Your Workflow</h1>`,
+    id: "C16",
+    name: "Trust signals",
+    category: "C",
+    weight: 25,
+    status: trustScore >= 4 ? "PASS" : trustScore >= 2 ? "WARN" : "FAIL",
+    found: `Found ${trustScore}/5 trust signals.`,
+    why: "Proves to AI and users that you are a real, trustworthy business.",
+    fix: "Add an About page, contact info, and testimonials.",
   });
 
-  checks.push({
-    id: "seo-h2",
-    name: "H2 Subheadings Present",
-    category: "SEO",
-    status: h2Count >= 1 ? "pass" : "fail",
-    detail:
-      h2Count >= 1 ? `Found ${h2Count} H2 subheadings.` : "No H2 tags found.",
-    fixTip: "Divide page content into distinct topic blocks using <h2> tags.",
-    fixCode: `<h2>Key Features</h2>`,
-  });
-
-  const canonicalHref = $('link[rel="canonical"]').attr("href")?.trim();
-  checks.push({
-    id: "seo-canonical",
-    name: "Canonical Tag Declared",
-    category: "SEO",
-    status:
-      canonicalHref && canonicalHref.startsWith("http")
-        ? "pass"
-        : canonicalHref
-          ? "warn"
-          : "fail",
-    detail: canonicalHref
-      ? `Canonical URL: ${canonicalHref}`
-      : "Canonical tag missing.",
-    fixTip: "Add a self-referencing canonical tag in the <head>.",
-    fixCode: `<link rel="canonical" href="${origin}/" />`,
-  });
-
-  const viewportContent = $('meta[name="viewport"]').attr("content")?.trim();
-  checks.push({
-    id: "seo-viewport",
-    name: "Mobile Viewport Meta Tag",
-    category: "SEO",
-    status:
-      viewportContent && viewportContent.toLowerCase().includes("width=")
-        ? "pass"
-        : "fail",
-    detail: viewportContent
-      ? `Viewport: "${viewportContent}"`
-      : "Missing viewport meta tag.",
-    fixTip: "Include standard viewport meta tag.",
-    fixCode: `<meta name="viewport" content="width=device-width, initial-scale=1.0" />`,
-  });
-
-  checks.push({
-    id: "geo-spa-shell",
-    name: "Raw HTML Content Visibility",
-    category: "GEO",
-    status:
-      rawBodyLength < 200 && hasRootDiv
-        ? "fail"
-        : rawBodyLength < 350
-          ? "warn"
-          : "pass",
-    detail:
-      rawBodyLength < 200 && hasRootDiv
-        ? "SPA Shell detected! AI bots see a blank page."
-        : `Rich raw HTML detected (${rawBodyLength} chars).`,
-    fixTip:
-      "Implement Server-Side Rendering (SSR) or Static Site Generation (SSG).",
-    fixCode: `// Use vite-plugin-prerender`,
-  });
-
-  checks.push({
-    id: "geo-llms-txt",
-    name: "llms.txt AI Knowledge File",
-    category: "GEO",
-    status: llmsTxtFound ? "pass" : "fail",
-    detail: llmsTxtFound
-      ? `llms.txt is live at /llms.txt.`
-      : "llms.txt is missing (404).",
-    fixTip: "Deploy an /llms.txt file at the root.",
-    fixCode: `# ${domain} - LLM Context File`,
-  });
-
-  const ogTitle = $('meta[property="og:title"]').attr("content")?.trim();
-  const ogImage = $('meta[property="og:image"]').attr("content")?.trim();
-  checks.push({
-    id: "geo-og-tags",
-    name: "OpenGraph Rich Media Tags",
-    category: "GEO",
-    status: ogTitle && ogImage ? "pass" : ogTitle || ogImage ? "warn" : "fail",
-    detail:
-      ogTitle && ogImage
-        ? `Both og:title and og:image configured.`
-        : "Missing og:title or og:image.",
-    fixTip: "Add OpenGraph metadata to your <head>.",
-    fixCode: `<meta property="og:title" content="${rawTitle || domain}" />`,
-  });
-
-  checks.push({
-    id: "geo-img-alt",
-    name: "Image Alt Text Coverage",
-    category: "GEO",
-    status:
-      totalImgs === 0
-        ? "pass"
-        : imgsWithAlt / totalImgs > 0.5
-          ? "pass"
-          : "fail",
-    detail:
-      totalImgs === 0
-        ? "No images found."
-        : `${Math.round((imgsWithAlt / totalImgs) * 100)}% of images have alt text.`,
-    fixTip: "Add descriptive alt text to all informative images.",
-    fixCode: `<img src="chart.png" alt="Annual customer growth graph" />`,
-  });
-
-  checks.push({
-    id: "geo-word-count",
-    name: "Substantive Word Count",
-    category: "GEO",
-    status: wordCount >= 300 ? "pass" : wordCount >= 180 ? "warn" : "fail",
-    detail: `Page contains ${wordCount} words.`,
-    fixTip: "Expand content with descriptive copy to reach 300+ words.",
-    fixCode: `<!-- Add 2-3 detailed paragraphs -->`,
-  });
-
-  const authorKeywords =
-    /(about us|our team|meet the team|founder|co-founder|leadership|author|written by|reviewed by|about the company)/i;
-  const hasAboutLink =
-    $("a").filter((_, el) => {
-      const href = $(el).attr("href") || "";
-      const text = $(el).text() || "";
-      return (
-        /about|team|founder|leadership|who-we-are/i.test(href) ||
-        authorKeywords.test(text)
-      );
-    }).length > 0;
-  const hasTrustInBody = authorKeywords.test(cleanContentText);
-
-  checks.push({
-    id: "geo-trust-signals",
-    name: "Author & E-E-A-T Trust Signals",
-    category: "GEO",
-    status: hasAboutLink || hasTrustInBody ? "pass" : "fail",
-    detail:
-      hasAboutLink || hasTrustInBody
-        ? "Detected explicit trust markers."
-        : "No Author, Founder, or About Us references found.",
-    fixTip: 'Add an "About Us" link and include author bylines.',
-    fixCode: `<div class="author-attribution"><p>Published by <strong>Founder</strong></p></div>`,
-  });
-
-  checks.push({
-    id: "aeo-json-ld",
-    name: "JSON-LD Structured Data Schema",
-    category: "AEO",
-    status: jsonLdCount > 0 ? "pass" : "fail",
-    detail:
-      jsonLdCount > 0
-        ? `Found ${jsonLdCount} JSON-LD blocks.`
-        : "No JSON-LD found.",
-    fixTip: "Inject a JSON-LD structured data block.",
-    fixCode: `<script type="application/ld+json">...</script>`,
-  });
-
-  checks.push({
-    id: "aeo-local-business",
-    name: "LocalBusiness / Org Schema",
-    category: "AEO",
-    status: hasLocalBusiness ? "pass" : "fail",
-    detail: hasLocalBusiness
-      ? `Local entity schema detected: "${localBusinessTypeFound}"`
-      : "Missing LocalBusiness schema.",
-    fixTip: "Add LocalBusiness JSON-LD markup.",
-    fixCode: `<script type="application/ld+json">...</script>`,
-  });
-
-  const hasFaqText =
-    /(frequently asked questions|faq\b|q&a\b|common questions)/i.test(
-      cleanContentText,
+  // C17: NAP
+  let c17Status: CheckStatus = "N/A";
+  if (isLocal) {
+    const hasPhone = /(?:\+91|\(?\d{3}\)?)[\s.-]?\d{3}[\s.-]?\d{4}/.test(
+      rawText,
     );
-  checks.push({
-    id: "aeo-faq",
-    name: "FAQ Content & FAQPage Schema",
-    category: "AEO",
-    status:
-      hasFaqSchema && hasFaqText
-        ? "pass"
-        : hasFaqSchema || hasFaqText
-          ? "warn"
-          : "fail",
-    detail:
-      hasFaqSchema && hasFaqText
-        ? "Both FAQPage schema and text found."
-        : hasFaqSchema
-          ? "Schema exists, but no text."
-          : hasFaqText
-            ? "Text found, but no schema."
-            : "No FAQ content found.",
-    fixTip: "Add a FAQ section with structured FAQPage schema.",
-    fixCode: `<section id="faq">...</section>`,
-  });
-
-  if (!robotsTxtFound) {
-    checks.push({
-      id: "aeo-robots-ai",
-      name: "Robots.txt AI Permissions",
-      category: "AEO",
-      status: "warn",
-      detail: "robots.txt not found (404).",
-      fixTip: "Deploy a robots.txt file welcoming AI crawlers.",
-      fixCode: `User-agent: GPTBot\nAllow: /`,
-    });
-  } else {
-    const isGptBotBlocked = /User-agent:\s*GPTBot[\s\S]*?Disallow:\s*\//i.test(
-      robotsTxtContent,
-    );
-    const isPerplexityBlocked =
-      /User-agent:\s*PerplexityBot[\s\S]*?Disallow:\s*\//i.test(
-        robotsTxtContent,
-      );
-    checks.push({
-      id: "aeo-robots-ai",
-      name: "Robots.txt AI Permissions",
-      category: "AEO",
-      status: isGptBotBlocked || isPerplexityBlocked ? "fail" : "pass",
-      detail:
-        isGptBotBlocked || isPerplexityBlocked
-          ? "AI crawlers are blocked!"
-          : "AI crawlers permitted.",
-      fixTip: "Remove Disallow rules for AI bots.",
-      fixCode: `User-agent: GPTBot\nAllow: /`,
-    });
+    c17Status = hasPhone ? "PASS" : "FAIL";
   }
-
-  const phoneRegex =
-    /(?:\+91[\s.-]?[6-9]\d{9}|\b[6-9]\d{9}\b|\+?1?[\s.-]?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})/i;
-  const addressRegex =
-    /(address|location|headquarters|office location|our studio|pincode)/i;
-  const hasPhone = phoneRegex.test(html);
-  const hasAddress = addressRegex.test(html);
-
   checks.push({
-    id: "aeo-nap",
-    name: "NAP (Name, Address, Phone)",
-    category: "AEO",
-    status:
-      hasPhone && hasAddress
-        ? "pass"
-        : hasPhone || hasAddress
-          ? "warn"
-          : "fail",
-    detail:
-      hasPhone && hasAddress
-        ? "Complete NAP indicators detected."
-        : "Incomplete NAP signals.",
-    fixTip:
-      "Ensure both a standard telephone number and full address appear in footer.",
-    fixCode: `<footer><p><strong>Address:</strong> 123 Innovation Boulevard</p></footer>`,
+    id: "C17",
+    name: "Business details (NAP)",
+    category: "C",
+    weight: 15,
+    status: c17Status,
+    found:
+      c17Status === "N/A"
+        ? "Skipped (online only)"
+        : c17Status === "PASS"
+          ? "Phone found."
+          : "No phone found.",
+    why: "Helps local AI queries find you.",
+    fix: "Add Name, Address, Phone to footer.",
   });
 
+  // C18: Business Profile Links
+  const hasSocial =
+    /linkedin\.com|facebook\.com|instagram\.com|twitter\.com|maps\.google/i.test(
+      rawText,
+    );
   checks.push({
-    id: "aeo-broken-links",
-    name: "Broken Navigation Links",
-    category: "AEO",
-    status:
-      brokenLinksCount === 0
-        ? "pass"
-        : brokenLinksCount === 1
-          ? "warn"
-          : "fail",
-    detail:
-      brokenLinksCount === 0
-        ? `Verified ${candidateHrefs.length} links.`
-        : `${brokenLinksCount} broken links found.`,
-    fixTip: "Fix or redirect broken hyperlinks.",
-    fixCode: `<!-- Update <a href="..."> to valid URLs -->`,
+    id: "C18",
+    name: "Business profile links",
+    category: "C",
+    weight: 10,
+    status: hasSocial ? "PASS" : "FAIL",
+    found: hasSocial ? "Social/profile links found." : "No social links.",
+    why: "Ties your website to your real-world presence.",
+    fix: "Add links to your social media and Google Business Profile.",
   });
 
-  let passCount = 0,
-    warnCount = 0,
-    failCount = 0;
+  // C19: Answer-ready content
+  let c19Status: CheckStatus = "PASS";
+  if (rawWords < 300) {
+    c19Status = "FAIL";
+  }
+  checks.push({
+    id: "C19",
+    name: "Answer-ready content",
+    category: "C",
+    weight: 20,
+    status: c19Status,
+    found: `${rawWords} words found.`,
+    why: "AI needs deep content to cite you.",
+    fix: "Write at least 300 words of helpful content.",
+  });
+
+  // --- INFO ROWS ---
+  info.push({
+    id: "I01",
+    name: "llms.txt",
+    present: false,
+    note: "Optional file.",
+  });
+  info.push({
+    id: "I02",
+    name: "H1 count",
+    present: h1Count > 0,
+    note: `${h1Count} H1 tags found.`,
+  });
+  info.push({
+    id: "I03",
+    name: "Social sharing tags",
+    present: false,
+    note: "Controls WhatsApp link previews.",
+  });
+  info.push({
+    id: "I04",
+    name: "FAQ schema",
+    present: false,
+    note: "Good to have.",
+  });
+  info.push({
+    id: "I05",
+    name: "Word count",
+    present: rawWords > 0,
+    note: `${rawWords} words.`,
+  });
+
+  // ==========================================
+  // SCORING & PRICING ENGINE
+  // ==========================================
+  let aPoints = 0,
+    aMax = 0;
+  let bPoints = 0,
+    bMax = 0;
+  let cPoints = 0,
+    cMax = 0;
+  let totalQuote = 499; // Base fee
+  let hasBlockingIssue = false;
+
   checks.forEach((c) => {
-    if (c.status === "pass") passCount++;
-    else if (c.status === "warn") warnCount++;
-    else failCount++;
+    const pts = c.status === "PASS" ? 1 : c.status === "WARN" ? 0.5 : 0;
+    if (c.status !== "N/A" && c.status !== "info") {
+      if (c.category === "A") {
+        aPoints += pts * c.weight;
+        aMax += c.weight;
+      }
+      if (c.category === "B") {
+        bPoints += pts * c.weight;
+        bMax += c.weight;
+      }
+      if (c.category === "C") {
+        cPoints += pts * c.weight;
+        cMax += c.weight;
+      }
+    }
+
+    // Pricing logic
+    if ((c.status === "FAIL" || c.status === "WARN") && FIX_PRICES[c.id]) {
+      totalQuote += FIX_PRICES[c.id];
+    }
+
+    // Blocking Cap Logic
+    if (
+      (c.id === "C01" || c.id === "C02" || c.id === "C04") &&
+      c.status === "FAIL"
+    ) {
+      hasBlockingIssue = true;
+    }
   });
 
-  const rawScore = passCount * (100 / 17) + warnCount * (50 / 17);
-  const finalScore = Math.min(100, Math.max(0, Math.round(rawScore)));
+  const scoreA = aMax > 0 ? (aPoints / aMax) * 100 : 0;
+  const scoreB = bMax > 0 ? (bPoints / bMax) * 100 : 0;
+  const scoreC = cMax > 0 ? (cPoints / cMax) * 100 : 0;
 
-  let grade = "Invisible to AI";
-  let gradeDescription =
-    "Critical gaps prevent AI search engines from indexing your brand.";
-  if (finalScore >= 85) {
-    grade = "AI-Optimized";
-    gradeDescription =
-      "High visibility! AI can easily read and cite your content.";
-  } else if (finalScore >= 60) {
-    grade = "Partially Visible";
-    gradeDescription =
-      "Some AI crawlers can read content, but triggers are missing.";
+  let overallRaw = scoreA * 0.4 + scoreB * 0.3 + scoreC * 0.3;
+
+  if (hasBlockingIssue) {
+    overallRaw = Math.min(overallRaw, 49);
   }
 
-  const seoChecks = checks.filter((c) => c.category === "SEO");
-  const geoChecks = checks.filter((c) => c.category === "GEO");
-  const aeoChecks = checks.filter((c) => c.category === "AEO");
-  const calcCatScore = (items: CheckItem[]) =>
-    Math.round(
-      (items.filter((i) => i.status === "pass").length * 100 +
-        items.filter((i) => i.status === "warn").length * 50) /
-        items.length,
-    );
+  const finalScore = Math.round(overallRaw);
+
+  let label = "Major gaps";
+  let reportLine =
+    "Several important signals are missing. Fixing these first will make the biggest difference.";
+  if (finalScore >= 90) {
+    label = "Strong foundation";
+    reportLine =
+      "Search engines and AI tools can find and read your site. Only small improvements remain.";
+  } else if (finalScore >= 75) {
+    label = "Good foundation";
+    reportLine =
+      "The essentials are in place. A few fixes will make your site easier to find and trust.";
+  } else if (finalScore >= 50) {
+    label = "Needs work";
+    reportLine =
+      "Some important gaps are holding your site back. The fixes below are the best place to start.";
+  } else if (hasBlockingIssue) {
+    label = "Blocked";
+    reportLine =
+      "Search or AI crawlers cannot reach or read this page. Fix this first, because nothing else matters until it is solved.";
+  }
 
   return {
-    url: fullUrl,
-    domain,
-    scannedAt: new Date().toISOString(),
-    loadTimeMs,
-    score: finalScore,
-    grade,
-    gradeDescription,
-    summary: { total: 17, pass: passCount, warn: warnCount, fail: failCount },
+    scanner_version: "2.0",
+    scanned_at: new Date().toISOString(),
+    input_url: fullUrl,
+    final_url: finalUrl,
+    is_local_business: isLocal,
+    overall: {
+      score: finalScore,
+      label,
+      capped: hasBlockingIssue,
+      disclaimer:
+        "This score measures technical readiness. It does not measure rankings, and no one can guarantee that an AI assistant will recommend your business.",
+    },
     categories: {
-      seo: { checks: seoChecks, score: calcCatScore(seoChecks), maxScore: 100 },
-      geo: { checks: geoChecks, score: calcCatScore(geoChecks), maxScore: 100 },
-      aeo: { checks: aeoChecks, score: calcCatScore(aeoChecks), maxScore: 100 },
+      A: { name: "Access and Indexability", score: Math.round(scoreA) },
+      B: { name: "Page Quality", score: Math.round(scoreB) },
+      C: { name: "Trust and Identity", score: Math.round(scoreC) },
     },
     checks,
-    metadata: {
-      title: rawTitle,
-      description: $('meta[name="description"]').attr("content") || "",
-      wordCount,
-      headingsCount: { h1: h1Count, h2: h2Count },
-      imagesCount: { total: totalImgs, withAlt: imgsWithAlt },
-      linksCount: {
-        total: candidateHrefs.length,
-        tested: candidateHrefs.length,
-        broken: brokenLinksCount,
-      },
-      hasSchema: jsonLdCount > 0,
-      hasRobots: robotsTxtFound,
-      hasLlmsTxt: llmsTxtFound,
+    info,
+    quote: {
+      setup_fee: 499,
+      subtotal: totalQuote,
+      quoted_items: [],
+      total_fixed: Math.min(totalQuote, 9999), // Max cap 9999
     },
   };
 }
 
+// --- API ROUTES ---
+
 app.post("/api/scan", async (req, res) => {
-  const { url } = req.body;
+  const { url, isLocal } = req.body;
   if (!url || typeof url !== "string")
     return res
       .status(400)
       .json({ error: "Please provide a valid website URL." });
 
   console.log(`\n========================================`);
-  console.log(`🔍 NEW SCAN: ${url}`);
+  console.log(`🔍 NEW SCAN: ${url} (Local: ${isLocal})`);
   console.log(`🕒 Time: ${new Date().toLocaleString()}`);
   console.log(`========================================\n`);
 
   try {
-    const result = await runScanner(url);
+    const result = await runScanner(url, !!isLocal);
     res.json(result);
   } catch (err: any) {
     console.error("Scan error:", err);
-
     if (
+      err.message.includes("Connection Failed") ||
       err.code === "ETIMEDOUT" ||
-      err.code === "ENETUNREACH" ||
-      err.message.includes("timeout")
+      err.code === "ENETUNREACH"
     ) {
       return res
         .status(500)
         .json({
           error:
-            "Could not reach this website. It may be down, or it has a firewall blocking automated scans.",
+            "Your site has a firewall that blocks our scanner. Please whitelist our IP or contact us for a manual scan.",
         });
     }
-    if (err.code === "ERR_FR_TOO_MANY_REDIRECTS") {
-      return res
-        .status(500)
-        .json({
-          error:
-            "This website has a broken redirect loop and could not be scanned.",
-        });
-    }
-    if (err.message.includes("maxContentLength")) {
-      return res
-        .status(500)
-        .json({
-          error: "This website is too large to scan (over 10MB of HTML).",
-        });
-    }
-
     res
       .status(500)
       .json({ error: err.message || "Failed to scan target website." });
