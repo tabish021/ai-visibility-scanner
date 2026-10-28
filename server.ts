@@ -3,6 +3,10 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import axios from "axios";
 import * as cheerio from "cheerio";
+import dns from "dns"; // ADDED: Import DNS module
+
+// ADDED: Force Node.js to use IPv4 first (Fixes ENETUNREACH on Render)
+dns.setDefaultResultOrder("ipv4first");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,7 +14,6 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 // --- SCANNER LOGIC ---
-// (I've kept your scanner logic exactly the same, just shorter for this snippet)
 export type CheckCategory = "SEO" | "GEO" | "AEO";
 export type CheckStatus = "pass" | "warn" | "fail";
 
@@ -85,7 +88,7 @@ async function runScanner(targetUrl: string): Promise<ScanResult> {
   const origin = parsedUrl.origin;
 
   const client = axios.create({
-    timeout: 9000,
+    timeout: 15000, // CHANGED: Increased from 9000 to 15000 for slower sites
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 (compatible; AIVisibilityBot/1.0)",
@@ -611,6 +614,20 @@ app.post("/api/scan", async (req, res) => {
     const result = await runScanner(url);
     res.json(result);
   } catch (err: any) {
+    console.error("Scan error:", err);
+
+    // CHANGED: Catch network timeouts or blocked connections cleanly
+    if (
+      err.code === "ETIMEDOUT" ||
+      err.code === "ENETUNREACH" ||
+      err.message.includes("timeout")
+    ) {
+      return res.status(500).json({
+        error:
+          "Could not reach this website. It may be down, or it has a firewall blocking automated scans.",
+      });
+    }
+
     res
       .status(500)
       .json({ error: err.message || "Failed to scan target website." });
