@@ -6,24 +6,18 @@ import {
   Bot,
   AlertCircle,
   RefreshCw,
-  ExternalLink,
   Download,
-  FileCheck,
-  Tag,
   X,
-  Check,
-  Copy,
   MessageSquare,
   Share2,
   TrendingUp,
   History,
-  ChevronRight,
-  CheckCircle2,
   CheckSquare,
   Phone,
   FileText,
   Code,
   Award,
+  Info,
 } from "lucide-react";
 import axios from "axios";
 import { ScanResult, CheckCategory } from "./types";
@@ -44,7 +38,6 @@ const SAMPLE_URLS = [
   "github.com",
   "supabase.com",
 ];
-
 const RECENT_SCAN_URLS = [
   "dianasseafood.com",
   "apocalypsecroasters.com",
@@ -74,60 +67,7 @@ const RECENT_SCAN_URLS = [
   "trexfitnessfactory.com",
   "mcccricket.com",
   "stridestudio.in",
-  "gleamcarwash.com",
-  "letterfolk.com",
-  "thesill.com",
-  "bellroy.com",
-  "artifactuprising.com",
-  "asburyparkbrewery.com",
-  "voodoodoughnut.com",
-  "partnerscoffee.com",
-  "socksmith.com",
-  "uglydrinks.com",
-  "terraintrees.com",
-  "nativecos.com",
-  "brooklinen.com",
-  "shhhowercap.com",
-  "hardgraft.com",
-  "sweetgreen.com",
-  "snacknation.com",
 ];
-
-// --- PRICING LOGIC ---
-const TECHNICAL_IDS = [
-  "seo-title",
-  "seo-h1",
-  "seo-h2",
-  "seo-canonical",
-  "seo-viewport",
-  "geo-spa-shell",
-  "geo-llms-txt",
-  "geo-og-tags",
-  "geo-img-alt",
-  "aeo-json-ld",
-  "aeo-local-business",
-  "aeo-robots-ai",
-  "aeo-nap",
-  "aeo-broken-links",
-];
-const CONTENT_IDS = ["geo-word-count", "geo-trust-signals", "aeo-faq"];
-
-const FIX_PRICES: Record<string, number> = {
-  "seo-title": 100,
-  "seo-h1": 100,
-  "seo-h2": 100,
-  "seo-canonical": 100,
-  "seo-viewport": 100,
-  "aeo-robots-ai": 500,
-  "geo-og-tags": 500,
-  "geo-img-alt": 500,
-  "aeo-nap": 500,
-  "geo-llms-txt": 500,
-  "aeo-broken-links": 500,
-  "aeo-json-ld": 1000,
-  "aeo-local-business": 1200,
-  "geo-spa-shell": 1800,
-};
 
 const getCategoryScore = (checks: any[], fixedIds: string[]) => {
   if (!checks || checks.length === 0) return 0;
@@ -142,11 +82,11 @@ const getCategoryScore = (checks: any[], fixedIds: string[]) => {
 
 export default function App() {
   const [urlInput, setUrlInput] = useState("");
+  const [isLocal, setIsLocal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-  const [downloadSuccess, setDownloadSuccess] = useState(false);
 
   const [tickerUrl, setTickerUrl] = useState(RECENT_SCAN_URLS[0]);
   const [history, setHistory] = useState<ScanResult[]>([]);
@@ -183,59 +123,43 @@ export default function App() {
 
   const currentScore = useMemo(() => {
     if (!scanResult) return 0;
-    let score = scanResult.score;
+    let score = scanResult.overall.score;
     fixedChecks.forEach((id) => {
       const check = scanResult.checks.find((c) => c.id === id);
-      if (check && check.status === "fail") score += 100 / 17;
-      if (check && check.status === "warn") score += 50 / 17;
+      if (check && check.status === "fail") score += check.weight * 0.4;
+      if (check && check.status === "warn") score += check.weight * 0.2;
     });
     return Math.min(100, Math.round(score));
   }, [scanResult, fixedChecks]);
 
-  const currentSeo = useMemo(
-    () =>
-      scanResult
-        ? getCategoryScore(scanResult.categories.seo.checks, fixedChecks)
-        : 0,
-    [scanResult, fixedChecks],
-  );
-  const currentGeo = useMemo(
-    () =>
-      scanResult
-        ? getCategoryScore(scanResult.categories.geo.checks, fixedChecks)
-        : 0,
-    [scanResult, fixedChecks],
-  );
-  const currentAeo = useMemo(
-    () =>
-      scanResult
-        ? getCategoryScore(scanResult.categories.aeo.checks, fixedChecks)
-        : 0,
-    [scanResult, fixedChecks],
-  );
-
   const techErrors = useMemo(() => {
     if (!scanResult) return [];
     return scanResult.checks.filter(
-      (c) => c.status !== "pass" && TECHNICAL_IDS.includes(c.id),
+      (c) =>
+        (c.status === "fail" || c.status === "warn") &&
+        c.price &&
+        c.id !== "C16" &&
+        c.id !== "C19",
     );
   }, [scanResult]);
 
   const contentErrors = useMemo(() => {
     if (!scanResult) return [];
     return scanResult.checks.filter(
-      (c) => c.status !== "pass" && CONTENT_IDS.includes(c.id),
+      (c) =>
+        (c.status === "fail" || c.status === "warn") &&
+        (c.id === "C16" || c.id === "C19"),
     );
   }, [scanResult]);
 
   const dynamicPrice = useMemo(() => {
-    if (techErrors.length === 0) return 0;
-    let price = 499;
+    if (!scanResult) return 0;
+    let total = scanResult.quote.setup_fee;
     techErrors.forEach((err) => {
-      price += FIX_PRICES[err.id] || 500;
+      if (err.price) total += err.price;
     });
-    return Math.min(7999, price);
-  }, [techErrors]);
+    return Math.min(9999, total);
+  }, [scanResult, techErrors]);
 
   const handleScan = async (targetUrlToScan?: string) => {
     const rawTarget = targetUrlToScan || urlInput;
@@ -253,13 +177,14 @@ export default function App() {
     try {
       const response = await axios.post<ScanResult>("/api/scan", {
         url: rawTarget.trim(),
+        isLocal,
       });
       setScanResult(response.data);
-      setUrlInput(response.data.url);
+      setUrlInput(response.data.input_url);
 
       const newHistory = [
         response.data,
-        ...history.filter((h) => h.domain !== response.data.domain),
+        ...history.filter((h) => h.input_url !== response.data.input_url),
       ].slice(0, 3);
       setHistory(newHistory);
       localStorage.setItem("scanHistory", JSON.stringify(newHistory));
@@ -281,29 +206,26 @@ export default function App() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
 
-  const initiatePdfDownload = () => setIsLeadModalOpen(true);
   const confirmLeadAndDownload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!leadEmail) return;
-
     setIsLeadModalOpen(false);
     setIsDownloadingPdf(true);
-
     try {
-      // Send the email to the backend to be logged
       await axios.post("/api/lead", {
         email: leadEmail,
-        domain: scanResult?.domain,
+        domain: scanResult?.input_url,
       });
     } catch (err) {
       console.error("Failed to save lead:", err);
     }
-
     setTimeout(() => {
-      if (scanResult) generatePdfReport({ ...scanResult, score: currentScore });
+      if (scanResult)
+        generatePdfReport({
+          ...scanResult,
+          overall: { ...scanResult.overall, score: currentScore },
+        });
       setIsDownloadingPdf(false);
-      setDownloadSuccess(true);
-      setTimeout(() => setDownloadSuccess(false), 3000);
     }, 500);
   };
 
@@ -314,6 +236,7 @@ export default function App() {
     try {
       const res = await axios.post<ScanResult>("/api/scan", {
         url: compareUrl,
+        isLocal: false,
       });
       setCompareResult(res.data);
     } catch {
@@ -324,7 +247,7 @@ export default function App() {
   };
 
   const handleShare = () => {
-    const text = `My website ${scanResult?.domain} scored ${currentScore}/100 on AI Visibility! Check yours at aiscan.needawebsite.in`;
+    const text = `My website ${scanResult?.input_url} scored ${currentScore}/100 on AI Visibility! Check yours at aiscan.needawebsite.in`;
     if (navigator.share) {
       navigator.share({
         title: "AI Visibility Scanner",
@@ -337,12 +260,9 @@ export default function App() {
     }
   };
 
-  const seoChecks =
-    scanResult?.checks.filter((c) => c.category === "SEO") || [];
-  const geoChecks =
-    scanResult?.checks.filter((c) => c.category === "GEO") || [];
-  const aeoChecks =
-    scanResult?.checks.filter((c) => c.category === "AEO") || [];
+  const catAChecks = scanResult?.checks.filter((c) => c.category === "A") || [];
+  const catBChecks = scanResult?.checks.filter((c) => c.category === "B") || [];
+  const catCChecks = scanResult?.checks.filter((c) => c.category === "C") || [];
 
   return (
     <div className="min-h-screen text-gray-200 flex flex-col font-sans relative bg-gray-950">
@@ -364,14 +284,12 @@ export default function App() {
         <header className="border-b border-gray-900/50 bg-gray-950/60 backdrop-blur-md sticky top-0 z-30">
           <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {/* UPDATED GRAPH LOGO */}
               <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(34,197,94,0.15)]">
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
                   className="w-5 h-5 drop-shadow-[0_0_6px_rgba(52,211,153,0.8)]"
                 >
-                  {/* Bars - Bigger and thicker */}
                   <rect
                     x="3"
                     y="13"
@@ -396,8 +314,6 @@ export default function App() {
                     fill="currentColor"
                     rx="1.5"
                   />
-
-                  {/* Arrow - Smaller, separated, pointing up */}
                   <path
                     d="M4 9 L18 3"
                     stroke="currentColor"
@@ -414,21 +330,18 @@ export default function App() {
                   />
                 </svg>
               </div>
-              {/* END OF LOGO */}
-
               <span className="font-extrabold text-white text-base">
-                AI Visibility Scanner
+                AI Visibility Scanner v2
               </span>
             </div>
             {scanResult && (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={initiatePdfDownload}
+                  onClick={() => setIsLeadModalOpen(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500 hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]"
                 >
                   <Sparkles className="w-3.5 h-3.5" /> Free Report
                 </button>
-
                 <button
                   onClick={handleShare}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-gray-300 border border-gray-800 text-xs font-semibold transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500 hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]"
@@ -446,7 +359,7 @@ export default function App() {
               Is your business invisible to AI?
             </h1>
             <p className="text-lg text-gray-400">
-              Free 17-point scan. See exactly what ChatGPT, Perplexity, Google
+              Free 19-point scan. See exactly what ChatGPT, Perplexity, Google
               and other AI models can read.
             </p>
           </div>
@@ -457,28 +370,42 @@ export default function App() {
                 e.preventDefault();
                 handleScan();
               }}
-              className="flex flex-col sm:flex-row gap-2.5 p-2 rounded-2xl bg-gray-900/80 backdrop-blur-md border border-gray-800"
+              className="flex flex-col gap-2 p-4 rounded-2xl bg-gray-900/80 backdrop-blur-md border border-gray-800"
             >
-              <div className="flex-1 flex items-center pl-3">
-                <Globe className="w-5 h-5 text-gray-400 mr-2.5" />
-                <input
-                  type="text"
-                  value={urlInput}
-                  onChange={(e) => {
-                    setUrlInput(e.target.value);
-                    setError(null);
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex-1 flex items-center pl-3 bg-gray-950 rounded-xl border border-gray-800">
+                  <Globe className="w-5 h-5 text-gray-400 mr-2.5" />
+                  <input
+                    type="text"
+                    value={urlInput}
+                    onChange={(e) => {
+                      setUrlInput(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="Enter URL (e.g. yourcompany.com)"
+                    className="w-full bg-transparent text-white focus:outline-none py-3"
+                    disabled={isLoading}
+                  />
+                </div>
+                <LiquidMetalButton
+                  label={isLoading ? "Scanning..." : "Run free scan"}
+                  onClick={() => {
+                    if (!isLoading && urlInput.trim()) handleScan();
                   }}
-                  placeholder="Enter URL (e.g. yourcompany.com)"
-                  className="w-full bg-transparent text-white focus:outline-none"
-                  disabled={isLoading}
                 />
               </div>
-              <LiquidMetalButton
-                label={isLoading ? "Scanning..." : "Run free scan"}
-                onClick={() => {
-                  if (!isLoading && urlInput.trim()) handleScan();
-                }}
-              />
+
+              <label className="flex items-center gap-2 mt-2 cursor-pointer w-fit">
+                <input
+                  type="checkbox"
+                  checked={isLocal}
+                  onChange={(e) => setIsLocal(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-700 text-emerald-500 focus:ring-emerald-500 bg-gray-900"
+                />
+                <span className="text-xs text-gray-400">
+                  This business serves customers at a physical location
+                </span>
+              </label>
             </form>
 
             <div className="mt-3 flex items-center justify-between flex-wrap gap-2 text-xs text-gray-400">
@@ -489,7 +416,7 @@ export default function App() {
                     key={s}
                     onClick={() => handlePresetClick(s)}
                     disabled={isLoading}
-                    className="px-2.5 py-1 rounded-lg bg-gray-900 border border-gray-800 font-mono text-[11px] transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500 hover:shadow-[0_0_10px_rgba(34,197,94,0.5)]"
+                    className="px-2.5 py-1 rounded-lg bg-gray-900 border border-gray-800 font-mono text-[11px] transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500"
                   >
                     <span>{s}</span>
                   </button>
@@ -501,11 +428,13 @@ export default function App() {
                   <span>Recent:</span>
                   {history.map((h) => (
                     <button
-                      key={h.domain}
+                      key={h.input_url}
                       onClick={() => setScanResult(h)}
-                      className="px-2 py-1 bg-gray-800 text-gray-300 rounded border border-gray-700 transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500 hover:shadow-[0_0_10px_rgba(34,197,94,0.5)]"
+                      className="px-2 py-1 bg-gray-800 text-gray-300 rounded border border-gray-700 transition-all hover:bg-emerald-500 hover:text-gray-950"
                     >
-                      {h.domain}
+                      {h.input_url
+                        .replace("https://", "")
+                        .replace("http://", "")}
                     </button>
                   ))}
                 </div>
@@ -525,23 +454,20 @@ export default function App() {
               <div className="w-full max-w-3xl mb-8 p-4 rounded-2xl bg-gray-900/80 backdrop-blur-md border border-gray-800 flex flex-wrap justify-between items-center gap-3">
                 <div className="flex items-center gap-2">
                   <Globe className="w-5 h-5 text-emerald-400" />
-                  <span className="text-lg font-bold text-white font-mono">
-                    {scanResult.domain}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    ({scanResult.loadTimeMs}ms load)
+                  <span className="text-lg font-bold text-white font-mono truncate max-w-[300px]">
+                    {scanResult.input_url}
                   </span>
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setIsCompareModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 text-xs font-bold text-white transition-all hover:bg-emerald-500 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 text-xs font-bold text-white transition-all hover:bg-emerald-500 hover:text-gray-950"
                   >
                     <TrendingUp className="w-3.5 h-3.5" /> Compare
                   </button>
                   <button
                     onClick={() => setIsAiModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-gray-950 text-xs font-bold transition-all hover:bg-emerald-400 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.6)]"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-gray-950 text-xs font-bold transition-all hover:bg-emerald-400"
                   >
                     <Sparkles className="w-3.5 h-3.5" /> AI Fix Guide
                   </button>
@@ -549,40 +475,87 @@ export default function App() {
               </div>
 
               <div className="w-full max-w-3xl mb-12">
-                <ScoreGauge result={{ ...scanResult, score: currentScore }} />
+                <ScoreGauge
+                  result={{
+                    ...scanResult,
+                    overall: { ...scanResult.overall, score: currentScore },
+                  }}
+                />
               </div>
+
+              {/* BLOCKING ISSUES FIRST */}
+              {scanResult.overall.capped && (
+                <div className="w-full max-w-4xl mb-6 p-5 rounded-2xl bg-rose-950/40 border border-rose-500/50">
+                  <h4 className="text-base font-bold text-rose-400 flex items-center gap-2 mb-2">
+                    <AlertCircle className="w-5 h-5" /> Fix these first
+                  </h4>
+                  <p className="text-xs text-gray-300 mb-3">
+                    Crawlers cannot reach or read your page. Nothing else
+                    matters until this is solved.
+                  </p>
+                  <div className="space-y-3">
+                    {catAChecks
+                      .filter((c) => c.status === "fail")
+                      .map((check) => (
+                        <CheckCard key={check.id} check={check} />
+                      ))}
+                  </div>
+                </div>
+              )}
 
               <div className="w-full max-w-4xl mb-4 flex items-center justify-between bg-blue-950/30 border border-blue-500/20 p-3 rounded-xl">
                 <p className="text-xs text-blue-300 flex items-center gap-2">
-                  <CheckSquare className="w-4 h-4" /> Tip: Developers can check
-                  off items below as you fix them to watch your score go up!
+                  <CheckSquare className="w-4 h-4" /> Tip: Check off items as
+                  you fix them to watch your score go up!
                 </p>
               </div>
 
               <div className="w-full max-w-4xl space-y-8">
                 {[
-                  { cat: "SEO", data: seoChecks },
-                  { cat: "GEO", data: geoChecks },
-                  { cat: "AEO", data: aeoChecks },
-                ].map(({ cat, data }) => (
-                  <div key={cat}>
+                  {
+                    title: "Category A: Access & Indexability",
+                    data: catAChecks,
+                  },
+                  { title: "Category B: Page Quality", data: catBChecks },
+                  { title: "Category C: Trust & Identity", data: catCChecks },
+                ].map(({ title, data }) => (
+                  <div key={title}>
                     <h3 className="text-lg font-bold text-white mb-3">
-                      {cat} Diagnostics
+                      {title}
                     </h3>
                     <div className="space-y-3">
                       {data.map((check) => (
-                        <CheckCard
-                          key={check.id}
-                          check={check}
-                          isFixed={fixedChecks.includes(check.id)}
-                          onToggleFix={toggleFix}
-                        />
+                        <CheckCard key={check.id} check={check} />
                       ))}
                     </div>
                   </div>
                 ))}
               </div>
 
+              {/* INFO ROWS */}
+              <div className="w-full max-w-4xl mt-10">
+                <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase tracking-wider">
+                  Info (Not Scored)
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {scanResult.info.map((info) => (
+                    <div
+                      key={info.id}
+                      className="p-3 bg-gray-900/40 rounded-xl border border-gray-800 flex items-start gap-3"
+                    >
+                      <Info className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-semibold text-gray-300">
+                          {info.name}
+                        </p>
+                        <p className="text-[11px] text-gray-500">{info.note}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* CTA / QUOTE */}
               <div className="w-full max-w-4xl mt-10 space-y-4">
                 {techErrors.length > 0 && (
                   <div className="p-5 rounded-2xl bg-gray-900/80 border border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -594,22 +567,21 @@ export default function App() {
                       <p className="text-xs text-gray-400 mt-1">
                         You have{" "}
                         <span className="text-rose-400 font-bold">
-                          {techErrors.length} technical errors
+                          {techErrors.length} technical issues
                         </span>{" "}
-                        blocking AI from reading your site. I can fix all of
-                        these within 24 hours.
+                        blocking AI.
                       </p>
                     </div>
                     <div className="flex gap-2 flex-wrap shrink-0">
                       <button
-                        onClick={initiatePdfDownload}
-                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-200 border border-gray-700 text-xs font-bold transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500 hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]"
+                        onClick={() => setIsLeadModalOpen(true)}
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-200 border border-gray-700 text-xs font-bold transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500"
                       >
                         <Download className="w-3.5 h-3.5" /> Free Report
                       </button>
                       <button
                         onClick={() => setContactMode("tech")}
-                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-gray-950 font-bold text-xs transition-all hover:bg-emerald-400 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.6)]"
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-gray-950 font-bold text-xs transition-all hover:bg-emerald-400"
                       >
                         <Code className="w-3.5 h-3.5" /> Fix My Tech (₹
                         {dynamicPrice})
@@ -626,9 +598,8 @@ export default function App() {
                         & Authority
                       </h4>
                       <p className="text-xs text-gray-500 mt-1">
-                        You have {contentErrors.length} content errors (e.g.,
-                        missing FAQ, no author bio). These require a custom
-                        monthly strategy.
+                        You have {contentErrors.length} content issues. These
+                        require a custom monthly strategy.
                       </p>
                     </div>
                     <button
@@ -650,14 +621,13 @@ export default function App() {
                         Your website foundation is fully optimized!
                       </h4>
                       <p className="text-sm text-gray-400 max-w-lg mx-auto">
-                        You passed all 17 technical and content checks. Now
-                        let's work on building your authority and ranking it to
-                        the top.
+                        You passed all checks. Now let's work on building your
+                        authority and ranking it to the top.
                       </p>
                     </div>
                     <button
                       onClick={() => setContactMode("perfect")}
-                      className="mt-2 px-6 py-3 rounded-xl bg-emerald-500 text-gray-950 font-bold text-sm transition-all hover:bg-emerald-400 hover:text-gray-950 hover:shadow-[0_0_20px_rgba(34,197,94,0.6)]"
+                      className="mt-2 px-6 py-3 rounded-xl bg-emerald-500 text-gray-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400"
                     >
                       Discuss Content Strategy
                     </button>
@@ -667,6 +637,7 @@ export default function App() {
             </div>
           )}
 
+          {/* FEATURE CARDS */}
           {!isLoading && !scanResult && (
             <div className="w-full max-w-4xl mt-12 grid grid-cols-1 md:grid-cols-3 gap-5">
               <div className="p-6 rounded-2xl bg-gray-900/60 backdrop-blur-sm border border-gray-800/80">
@@ -674,11 +645,11 @@ export default function App() {
                   <Globe className="w-5 h-5" />
                 </div>
                 <h3 className="text-base font-bold text-white mb-2">
-                  5-Point SEO Foundation
+                  Access & Indexability
                 </h3>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  Evaluates H1/H2 hierarchy, canonical integrity, mobile
-                  viewports, and clean document metadata required for indexing.
+                  Can search and AI crawlers reach and read the page? We test
+                  robots.txt, firewalls, and raw HTML.
                 </p>
               </div>
               <div className="p-6 rounded-2xl bg-gray-900/60 backdrop-blur-sm border border-gray-800/80">
@@ -686,12 +657,11 @@ export default function App() {
                   <Bot className="w-5 h-5" />
                 </div>
                 <h3 className="text-base font-bold text-white mb-2">
-                  6-Point GEO Protocol
+                  Page Quality
                 </h3>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  Checks raw HTML visibility without JS, the emerging /llms.txt
-                  standard, OpenGraph cards, image alt ratios, and E-E-A-T trust
-                  signals.
+                  Are the fundamentals correct? We check titles, descriptions,
+                  headings, and page speed.
                 </p>
               </div>
               <div className="p-6 rounded-2xl bg-gray-900/60 backdrop-blur-sm border border-gray-800/80">
@@ -699,12 +669,11 @@ export default function App() {
                   <Zap className="w-5 h-5" />
                 </div>
                 <h3 className="text-base font-bold text-white mb-2">
-                  6-Point AEO Answer Engine
+                  Trust & Identity
                 </h3>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  Audits JSON-LD schema, LocalBusiness entities, FAQ patterns,
-                  robots.txt AI permissions (GPTBot/PerplexityBot), and NAP
-                  signals.
+                  Can machines tell who the business is and trust it? We check
+                  schema, trust signals, and NAP details.
                 </p>
               </div>
             </div>
@@ -735,6 +704,7 @@ export default function App() {
         </footer>
       </div>
 
+      {/* LEAD MODAL */}
       {isLeadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 w-full max-w-sm relative">
@@ -748,7 +718,7 @@ export default function App() {
               Where should we send it?
             </h3>
             <p className="text-xs text-gray-400 mb-4">
-              Enter your email to download the PDF report.
+              Enter your email to download the full 19-point PDF report.
             </p>
             <form onSubmit={confirmLeadAndDownload}>
               <input
@@ -759,7 +729,7 @@ export default function App() {
                 placeholder="hello@needawebsite.com"
                 className="w-full bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 text-white mb-3 focus:border-emerald-500 outline-none"
               />
-              <button className="w-full bg-emerald-500 text-gray-950 font-bold py-3 rounded-lg transition-all hover:bg-emerald-400 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.6)]">
+              <button className="w-full bg-emerald-500 text-gray-950 font-bold py-3 rounded-lg transition-all hover:bg-emerald-400">
                 Download PDF
               </button>
             </form>
@@ -767,6 +737,7 @@ export default function App() {
         </div>
       )}
 
+      {/* COMPARE MODAL */}
       {isCompareModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-gray-950 border border-purple-500/30 rounded-2xl p-6 w-full max-w-lg relative">
@@ -781,7 +752,7 @@ export default function App() {
               Comparison
             </h3>
             <p className="text-xs text-gray-400 mb-4">
-              See how your score stacks up in every category.
+              See how your score stacks up.
             </p>
             <div className="flex gap-2 mb-6">
               <input
@@ -793,162 +764,33 @@ export default function App() {
               <button
                 onClick={handleCompare}
                 disabled={isComparing}
-                className="bg-purple-500 text-white font-bold px-4 rounded-lg disabled:opacity-50 transition-all hover:bg-emerald-500 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]"
+                className="bg-purple-500 text-white font-bold px-4 rounded-lg disabled:opacity-50 transition-all hover:bg-emerald-500 hover:text-gray-950"
               >
                 {isComparing ? "Scanning..." : "Scan"}
               </button>
             </div>
             {compareResult && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between bg-gray-900 p-4 rounded-xl border border-gray-800">
-                  <div className="text-center w-1/3">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                      You
-                    </p>
-                    <p
-                      className={`text-3xl font-extrabold ${currentScore >= compareResult.score ? "text-emerald-400" : "text-white"}`}
-                    >
-                      {currentScore}
-                    </p>
-                  </div>
-                  <div className="text-gray-600 font-bold text-sm">VS</div>
-                  <div className="text-center w-1/3">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 truncate">
-                      {compareResult.domain}
-                    </p>
-                    <p
-                      className={`text-3xl font-extrabold ${compareResult.score > currentScore ? "text-emerald-400" : "text-white"}`}
-                    >
-                      {compareResult.score}
-                    </p>
-                  </div>
+              <div className="flex items-center justify-between bg-gray-900 p-4 rounded-xl border border-gray-800 mt-2">
+                <div className="text-center w-1/3">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
+                    You
+                  </p>
+                  <p
+                    className={`text-3xl font-extrabold ${currentScore >= compareResult.overall.score ? "text-emerald-400" : "text-white"}`}
+                  >
+                    {currentScore}
+                  </p>
                 </div>
-                <div className="space-y-3">
-                  <div className="bg-gray-900 p-3 rounded-lg border border-gray-800">
-                    <div className="flex justify-between text-xs font-semibold mb-2">
-                      <span className="text-emerald-400">SEO Foundation</span>
-                      <div className="flex gap-4">
-                        <span
-                          className={
-                            currentSeo >= compareResult.categories.seo.score
-                              ? "text-emerald-400 font-bold"
-                              : "text-gray-400"
-                          }
-                        >
-                          You: {currentSeo}%
-                        </span>
-                        <span
-                          className={
-                            compareResult.categories.seo.score > currentSeo
-                              ? "text-emerald-400 font-bold"
-                              : "text-gray-400"
-                          }
-                        >
-                          {compareResult.categories.seo.score}%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex gap-1 h-2">
-                      <div className="flex-1 bg-gray-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-500 transition-all"
-                          style={{ width: `${currentSeo}%` }}
-                        />
-                      </div>
-                      <div className="flex-1 bg-gray-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-700 transition-all"
-                          style={{
-                            width: `${compareResult.categories.seo.score}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-gray-900 p-3 rounded-lg border border-gray-800">
-                    <div className="flex justify-between text-xs font-semibold mb-2">
-                      <span className="text-cyan-400">AI Visibility (GEO)</span>
-                      <div className="flex gap-4">
-                        <span
-                          className={
-                            currentGeo >= compareResult.categories.geo.score
-                              ? "text-cyan-400 font-bold"
-                              : "text-gray-400"
-                          }
-                        >
-                          You: {currentGeo}%
-                        </span>
-                        <span
-                          className={
-                            compareResult.categories.geo.score > currentGeo
-                              ? "text-cyan-400 font-bold"
-                              : "text-gray-400"
-                          }
-                        >
-                          {compareResult.categories.geo.score}%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex gap-1 h-2">
-                      <div className="flex-1 bg-gray-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-cyan-500 transition-all"
-                          style={{ width: `${currentGeo}%` }}
-                        />
-                      </div>
-                      <div className="flex-1 bg-gray-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-cyan-700 transition-all"
-                          style={{
-                            width: `${compareResult.categories.geo.score}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-gray-900 p-3 rounded-lg border border-gray-800">
-                    <div className="flex justify-between text-xs font-semibold mb-2">
-                      <span className="text-purple-400">
-                        Answer Engine (AEO)
-                      </span>
-                      <div className="flex gap-4">
-                        <span
-                          className={
-                            currentAeo >= compareResult.categories.aeo.score
-                              ? "text-purple-400 font-bold"
-                              : "text-gray-400"
-                          }
-                        >
-                          You: {currentAeo}%
-                        </span>
-                        <span
-                          className={
-                            compareResult.categories.aeo.score > currentAeo
-                              ? "text-purple-400 font-bold"
-                              : "text-gray-400"
-                          }
-                        >
-                          {compareResult.categories.aeo.score}%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex gap-1 h-2">
-                      <div className="flex-1 bg-gray-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-purple-500 transition-all"
-                          style={{ width: `${currentAeo}%` }}
-                        />
-                      </div>
-                      <div className="flex-1 bg-gray-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-purple-700 transition-all"
-                          style={{
-                            width: `${compareResult.categories.aeo.score}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                <div className="text-gray-600 font-bold text-sm">VS</div>
+                <div className="text-center w-1/3">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 truncate">
+                    {compareResult.input_url.replace("https://", "")}
+                  </p>
+                  <p
+                    className={`text-3xl font-extrabold ${compareResult.overall.score > currentScore ? "text-emerald-400" : "text-white"}`}
+                  >
+                    {compareResult.overall.score}
+                  </p>
                 </div>
               </div>
             )}
@@ -956,6 +798,7 @@ export default function App() {
         </div>
       )}
 
+      {/* AI FIX GUIDE MODAL */}
       {isAiModalOpen && scanResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 w-full max-w-2xl relative max-h-[80vh] overflow-y-auto">
@@ -973,7 +816,7 @@ export default function App() {
             </div>
             <div className="space-y-4">
               {scanResult.checks
-                .filter((c) => c.status !== "pass")
+                .filter((c) => c.status === "fail" || c.status === "warn")
                 .map((check) => (
                   <div
                     key={check.id}
@@ -982,10 +825,9 @@ export default function App() {
                     <h4 className="text-sm font-bold text-rose-400 mb-1">
                       {check.name}
                     </h4>
-                    <p className="text-xs text-gray-400 mb-2">{check.detail}</p>
+                    <p className="text-xs text-gray-400 mb-2">{check.found}</p>
                     <div className="bg-gray-950 p-2 rounded text-xs text-emerald-300 font-mono border border-gray-800 overflow-x-auto">
-                      {check.fixTip ||
-                        "Review the page source and update the relevant tags."}
+                      {check.fix}
                     </div>
                   </div>
                 ))}
@@ -1003,7 +845,7 @@ export default function App() {
                       setIsAiModalOpen(false);
                       setContactMode("tech");
                     }}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold px-6 py-2 rounded-lg transition-all hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.6)]"
+                    className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold px-6 py-2 rounded-lg transition-all"
                   >
                     Fix My Technical Foundation (₹{dynamicPrice})
                   </button>
@@ -1014,6 +856,7 @@ export default function App() {
         </div>
       )}
 
+      {/* CONTACT MODAL */}
       {contactMode && scanResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 w-full max-w-sm relative text-center">
@@ -1057,15 +900,15 @@ export default function App() {
             <div className="flex flex-col gap-3">
               <a
                 href="tel:+919987455707"
-                className="w-full bg-gray-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 border border-gray-700 transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500 hover:shadow-[0_0_15px_rgba(34,197,94,0.5)]"
+                className="w-full bg-gray-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 border border-gray-700 transition-all hover:bg-emerald-500 hover:text-gray-950 hover:border-emerald-500"
               >
                 <Phone className="w-4 h-4" /> Call Now
               </a>
               <a
-                href={`https://wa.me/919987455707?text=${encodeURIComponent(contactMode === "tech" ? `Hi Tabish, I want to hire you for the Foundation Fix for ${scanResult.domain}. The quoted price is ₹${dynamicPrice}.` : contactMode === "content" ? `Hi Tabish, I want to discuss a content strategy for my website (${scanResult.domain}).` : `Hi Tabish, my website (${scanResult.domain}) passed all tests! I want to discuss ranking it to the top.`)}`}
+                href={`https://wa.me/919987455707?text=${encodeURIComponent(contactMode === "tech" ? `Hi Tabish, I want to hire you for the Foundation Fix for ${scanResult.input_url}. The quoted price is ₹${dynamicPrice}.` : contactMode === "content" ? `Hi Tabish, I want to discuss a content strategy for my website (${scanResult.input_url}).` : `Hi Tabish, my website (${scanResult.input_url}) passed all tests! I want to discuss ranking it to the top.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full bg-emerald-500 text-gray-950 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-emerald-400 hover:text-gray-950 hover:shadow-[0_0_15px_rgba(34,197,94,0.6)]"
+                className="w-full bg-emerald-500 text-gray-950 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-emerald-400"
               >
                 <MessageSquare className="w-4 h-4" /> Message on WhatsApp
               </a>
