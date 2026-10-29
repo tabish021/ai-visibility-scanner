@@ -65,6 +65,7 @@ async function fetchPSI(url: string, apiKey: string) {
       cls: audits["cumulative-layout-shift"]?.numericValue || 0,
     };
   } catch (e: any) {
+    // We catch the error here so the whole scan doesn't crash
     console.error("PageSpeed Error:", e.message);
     return null;
   }
@@ -127,7 +128,7 @@ async function runScanner(
     } catch {}
   }
 
-  // 🚨 CHECK SCHEMA BEFORE DELETING SCRIPTS
+  // CHECK SCHEMA BEFORE DELETING SCRIPTS
   const jsonLd = $('script[type="application/ld+json"]');
   let hasOrg = false;
   jsonLd.each((_, el) => {
@@ -575,10 +576,18 @@ async function runScanner(
   };
 }
 
-// API Routes
+// ==========================================
+// 🚨 API ROUTES (The Logs are back here) 🚨
+// ==========================================
 app.post("/api/scan", async (req, res) => {
   const { url, isLocal } = req.body;
   if (!url) return res.status(400).json({ error: "URL required." });
+
+  console.log(`\n========================================`);
+  console.log(`🔍 NEW SCAN: ${url} (Local: ${isLocal})`);
+  console.log(`🕒 Time: ${new Date().toLocaleString()}`);
+  console.log(`========================================\n`);
+
   try {
     const result = await runScanner(url, !!isLocal);
     res.json(result);
@@ -589,18 +598,20 @@ app.post("/api/scan", async (req, res) => {
 
 app.post("/api/lead", (req, res) => {
   const { email, domain } = req.body;
+
   console.log(`\n========================================`);
   console.log(`🎯 NEW LEAD CAPTURED!`);
   console.log(`📧 Email: ${email}`);
   console.log(`🌐 Website: ${domain}`);
   console.log(`🕒 Time: ${new Date().toLocaleString()}`);
   console.log(`========================================\n`);
+
   res.json({ success: true });
 });
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-// 🚨 THE MISSING BOILERPLATE THAT CRASHED YOUR APP 🚨
+// Server Startup
 async function startServer() {
   const isProd = process.env.NODE_ENV === "production";
   if (!isProd) {
