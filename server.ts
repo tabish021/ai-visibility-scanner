@@ -127,7 +127,7 @@ async function runScanner(
     } catch {}
   }
 
-  // 🚨 FIX: CHECK SCHEMA BEFORE DELETING SCRIPTS
+  // 🚨 CHECK SCHEMA BEFORE DELETING SCRIPTS
   const jsonLd = $('script[type="application/ld+json"]');
   let hasOrg = false;
   jsonLd.each((_, el) => {
@@ -575,7 +575,7 @@ async function runScanner(
   };
 }
 
-// Routes
+// API Routes
 app.post("/api/scan", async (req, res) => {
   const { url, isLocal } = req.body;
   if (!url) return res.status(400).json({ error: "URL required." });
@@ -587,4 +587,38 @@ app.post("/api/scan", async (req, res) => {
   }
 });
 
-// Removed the rest of the boilerplate for brevity, use your existing app.listen boilerplate.
+app.post("/api/lead", (req, res) => {
+  const { email, domain } = req.body;
+  console.log(`\n========================================`);
+  console.log(`🎯 NEW LEAD CAPTURED!`);
+  console.log(`📧 Email: ${email}`);
+  console.log(`🌐 Website: ${domain}`);
+  console.log(`🕒 Time: ${new Date().toLocaleString()}`);
+  console.log(`========================================\n`);
+  res.json({ success: true });
+});
+
+app.get("/api/health", (req, res) => res.json({ status: "ok" }));
+
+// 🚨 THE MISSING BOILERPLATE THAT CRASHED YOUR APP 🚨
+async function startServer() {
+  const isProd = process.env.NODE_ENV === "production";
+  if (!isProd) {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.resolve(process.cwd(), "dist");
+    app.use(express.static(distPath));
+    app.get("*", (req, res) => res.sendFile(path.join(distPath, "index.html")));
+  }
+  app.listen(Number(PORT), "0.0.0.0", () =>
+    console.log(`Server running on port ${PORT}`),
+  );
+}
+startServer().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
