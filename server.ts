@@ -630,12 +630,10 @@ app.post("/api/scan", async (req, res) => {
       err.code === "ETIMEDOUT" ||
       err.code === "ENETUNREACH"
     ) {
-      return res
-        .status(500)
-        .json({
-          error:
-            "Your site has a firewall that blocks our scanner. Please whitelist our IP or contact us for a manual scan.",
-        });
+      return res.status(500).json({
+        error:
+          "Your site has a firewall that blocks our scanner. Please whitelist our IP or contact us for a manual scan.",
+      });
     }
     res
       .status(500)

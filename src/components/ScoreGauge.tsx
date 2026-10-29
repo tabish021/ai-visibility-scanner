@@ -15,24 +15,35 @@ interface ScoreGaugeProps {
 export const ScoreGauge: React.FC<ScoreGaugeProps> = ({ result }) => {
   const { overall, categories, checks } = result;
 
-  const passCount = checks.filter((c) => c.status === "pass").length;
-  const warnCount = checks.filter((c) => c.status === "warn").length;
-  const failCount = checks.filter((c) => c.status === "fail").length;
+  // Ensure the score is a valid number between 0 and 100
+  const safeScore =
+    typeof overall.score === "number" && !isNaN(overall.score)
+      ? overall.score
+      : 0;
+
+  const passCount = checks.filter(
+    (c) => (c.status || "").toUpperCase() === "PASS",
+  ).length;
+  const warnCount = checks.filter(
+    (c) => (c.status || "").toUpperCase() === "WARN",
+  ).length;
+  const failCount = checks.filter(
+    (c) => (c.status || "").toUpperCase() === "FAIL",
+  ).length;
 
   const size = 220;
   const strokeWidth = 14;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset =
-    circumference - (overall.score / 100) * circumference;
+  const strokeDashoffset = circumference - (safeScore / 100) * circumference;
 
   let ringColor = "#22c55e";
   let glowClass = "glow-green";
 
-  if (overall.score < 50 || overall.capped) {
+  if (safeScore < 50 || overall.capped) {
     ringColor = "#ef4444";
     glowClass = "glow-red";
-  } else if (overall.score < 75) {
+  } else if (safeScore < 75) {
     ringColor = "#f59e0b";
     glowClass = "glow-amber";
   }
@@ -71,7 +82,7 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({ result }) => {
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
           <span className="text-5xl font-extrabold tracking-tight text-white font-mono">
-            {overall.score}
+            {Math.round(safeScore)}
           </span>
           <span className="text-xs font-semibold text-gray-400 tracking-wider uppercase mt-0.5">
             Out of 100
@@ -85,23 +96,23 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({ result }) => {
           style={{
             borderColor: overall.capped
               ? "#ef4444"
-              : overall.score >= 75
+              : safeScore >= 75
                 ? "#22c55e"
-                : overall.score >= 50
+                : safeScore >= 50
                   ? "#f59e0b"
                   : "#ef4444",
             backgroundColor: overall.capped
               ? "rgba(239, 68, 68, 0.1)"
-              : overall.score >= 75
+              : safeScore >= 75
                 ? "rgba(34, 197, 94, 0.1)"
-                : overall.score >= 50
+                : safeScore >= 50
                   ? "rgba(245, 158, 11, 0.1)"
                   : "rgba(239, 68, 68, 0.1)",
             color: overall.capped
               ? "#f87171"
-              : overall.score >= 75
+              : safeScore >= 75
                 ? "#4ade80"
-                : overall.score >= 50
+                : safeScore >= 50
                   ? "#fbbf24"
                   : "#f87171",
           }}
@@ -111,7 +122,7 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({ result }) => {
           ) : (
             <Sparkles className="w-3.5 h-3.5" />
           )}
-          {overall.label}
+          {overall.label || "Scan Complete"}
         </div>
         <p className="text-sm text-gray-400 leading-relaxed px-4">
           {overall.disclaimer}
@@ -153,13 +164,13 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({ result }) => {
           <div className="flex justify-between items-center text-xs text-gray-400 mb-1.5">
             <span className="font-semibold text-gray-300">SEO (Access)</span>
             <span className="font-mono text-emerald-400 font-bold">
-              {categories.A.score}%
+              {categories?.A?.score || 0}%
             </span>
           </div>
           <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
             <div
               className="bg-emerald-500 h-full rounded-full transition-all duration-700"
-              style={{ width: `${categories.A.score}%` }}
+              style={{ width: `${categories?.A?.score || 0}%` }}
             />
           </div>
         </div>
@@ -167,13 +178,13 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({ result }) => {
           <div className="flex justify-between items-center text-xs text-gray-400 mb-1.5">
             <span className="font-semibold text-gray-300">GEO (Quality)</span>
             <span className="font-mono text-cyan-400 font-bold">
-              {categories.B.score}%
+              {categories?.B?.score || 0}%
             </span>
           </div>
           <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
             <div
               className="bg-cyan-500 h-full rounded-full transition-all duration-700"
-              style={{ width: `${categories.B.score}%` }}
+              style={{ width: `${categories?.B?.score || 0}%` }}
             />
           </div>
         </div>
@@ -181,13 +192,13 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({ result }) => {
           <div className="flex justify-between items-center text-xs text-gray-400 mb-1.5">
             <span className="font-semibold text-gray-300">AEO (Trust)</span>
             <span className="font-mono text-purple-400 font-bold">
-              {categories.C.score}%
+              {categories?.C?.score || 0}%
             </span>
           </div>
           <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
             <div
               className="bg-purple-500 h-full rounded-full transition-all duration-700"
-              style={{ width: `${categories.C.score}%` }}
+              style={{ width: `${categories?.C?.score || 0}%` }}
             />
           </div>
         </div>

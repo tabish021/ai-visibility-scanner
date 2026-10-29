@@ -117,8 +117,11 @@ export default function App() {
   }, []);
 
   const currentScore = useMemo(() => {
-    if (!scanResult) return 0;
-    let score = scanResult.overall.score;
+    if (!scanResult || !scanResult.overall) return 0;
+    let score =
+      typeof scanResult.overall.score === "number"
+        ? scanResult.overall.score
+        : 0;
     fixedChecks.forEach((id) => {
       const check = scanResult.checks.find((c) => c.id === id);
       if (check) {
@@ -127,7 +130,7 @@ export default function App() {
         if (s === "WARN") score += check.weight * 0.2;
       }
     });
-    return Math.min(100, Math.round(score));
+    return Math.min(100, Math.max(0, Math.round(score)));
   }, [scanResult, fixedChecks]);
 
   const techErrors = useMemo(() => {
